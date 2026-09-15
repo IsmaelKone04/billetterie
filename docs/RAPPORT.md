@@ -39,7 +39,46 @@ notifications e-mail (confirmation + rappel J-1).
 `SeatMap`, `TicketType`), migrations, admin basique, auth staff.
 
 **Points ouverts :**
-- Dépôt GitHub à créer (nom `billetterie`, privé) — sur demande explicite
-  uniquement.
 - Identifiants CinetPay réels non disponibles à ce stade — développement en
   mode `simulator` jusqu'à nouvel ordre.
+
+---
+
+## 2026-09-15 — Dépôt GitHub créé
+
+Dépôt privé **github.com/IsmaelKone04/billetterie** créé et le commit M0
+poussé (branche `master`).
+
+## 2026-09-15 — M1 : modèles Django noyau
+
+**Fait :**
+- Projet Django scaffoldé dans `apps/admin-django/` (Django 6.1.1, config
+  `config/`, app `ticketing/`).
+- `settings.py` durci sur le même modèle qu'Atelier- : `.env` obligatoire
+  hors `DEBUG`, `SECRET_KEY` requise en production, `LANGUAGE_CODE=fr-fr`,
+  `TIME_ZONE=Africa/Abidjan`, base Postgres (plus de SQLite).
+- Modèles noyau créés (`ticketing/models.py`) : `Organizer` (compte
+  organisateur pour la marketplace multi-organisateurs), `Venue`, `Section`
+  (zone du plan de salle, numérotée ou à capacité libre), `Seat` (siège
+  numéroté), `Event` (statuts brouillon/publié/terminé/annulé), `TicketType`
+  (remplace le dict `TARIFS` codé en dur de l'ancienne maquette — prix,
+  quota, fenêtre de vente, rattachable à une `Section`).
+- Admin Django basique enregistré (`ticketing/admin.py`) avec inlines
+  (sièges dans une section, tarifs dans un événement).
+- Migration `0001_initial` générée puis appliquée avec succès contre un vrai
+  Postgres (conteneur Docker).
+- Superuser de test créé, `manage.py runserver` vérifié : `/` → 200,
+  `/admin/login/` → 200, les 5 modèles top-niveau bien enregistrés dans
+  l'admin.
+
+**Incident résolu en cours de route :** Docker Desktop bloqué (moteur
+WSL2 ne répondant plus) — résolu par `wsl --shutdown` puis relance complète
+de Docker Desktop (a aussi redémarré les conteneurs `monbail` déjà en
+cours, qui tournent en parallèle sur cette machine — pas de perte).
+Conséquence durable : les ports hôte de `postgres`/`redis` dans
+`docker-compose.yml` sont décalés (`5433`/`6380` au lieu de `5432`/`6379`)
+car `monbail` occupe déjà les ports par défaut sur cette machine — contrôlé
+via `POSTGRES_PORT`/`REDIS_PORT` dans `.env`.
+
+**Prochain jalon (M2) :** FastAPI — catalogue public en lecture seule sur la
+même base Postgres.
