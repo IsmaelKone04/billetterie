@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+.next/
+dist/
+build/
+*.sqlite3
+.DS_Store
+Thumbs.db
