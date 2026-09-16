@@ -4,15 +4,15 @@ Billetterie d'événements moderne pour le marché ivoirien — places numérot�
 scan de billets en temps réel, marketplace multi-organisateurs, analytics,
 paiement Mobile Money (CinetPay : Orange Money / MTN / Moov / Wave).
 
-> **État actuel : M5.** Back-office Django avec modèles noyau (organisateurs,
-> lieux, plan de salle, événements, tarifs, commandes, billets) et API
-> FastAPI avec catalogue public + achat + paiement Mobile Money (CinetPay +
-> provider `simulator`) + billets (QR signé, page « mes billets », scan
-> anti-duplication) + marketplace multi-organisateurs (inscription/connexion
-> par JWT, dashboard analytics : ventes, remplissage, revenus par événement).
-> Pas encore de frontend (les pages « mes billets »/scan/dashboard existent
-> comme endpoints API, pas encore comme pages Next.js — prévu au jalon M6).
-> Ce README est mis à jour à chaque jalon (voir `docs/RAPPORT.md`).
+> **État actuel : M6.** Back-office Django avec modèles noyau (organisateurs,
+> lieux, plan de salle, événements, tarifs, commandes, billets), API FastAPI
+> (catalogue, achat, paiement Mobile Money, billets/QR, scan, marketplace
+> multi-organisateurs par JWT, dashboard analytics) et **frontend Next.js
+> complet** (catalogue, achat, « mes billets », scan par caméra,
+> inscription/connexion/dashboard organisateur), branché sur l'API FastAPI.
+> Reste à faire : assignation de sièges numérotés, vérification Docker
+> Compose de bout en bout, avant intégration au portfolio. Ce README est mis
+> à jour à chaque jalon (voir `docs/RAPPORT.md`).
 
 ## Stack
 
@@ -45,8 +45,7 @@ docker compose up -d postgres redis
 
 **Back-office Django** (`apps/admin-django/`) : voir son README.
 **API publique FastAPI** (`apps/api-fastapi/`) : voir son README.
-
-Frontend Next.js pas encore commencé (jalon M6).
+**Frontend Next.js** (`apps/web/`) : voir son README.
 
 ## Roadmap
 

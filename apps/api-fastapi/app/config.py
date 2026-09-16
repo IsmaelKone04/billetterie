@@ -28,8 +28,17 @@ def _redis_url() -> str:
     return f"redis://{host}:{port}/0"
 
 
+def _cors_origins() -> list[str]:
+    raw = os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
 DATABASE_URL = _database_url()
 REDIS_URL = _redis_url()
+# Origines autorisées à appeler cette API depuis un navigateur (apps/web en
+# dev par défaut). Pas un secret — juste la liste des frontends de confiance,
+# à ajuster en production via CORS_ALLOWED_ORIGINS (séparées par des virgules).
+CORS_ALLOWED_ORIGINS = _cors_origins()
 
 # Même logique que DJANGO_DEBUG côté admin-django : autorise un secret de
 # dev par défaut uniquement quand API_DEBUG=true, sinon un secret manquant

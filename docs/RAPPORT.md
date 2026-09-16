@@ -320,3 +320,76 @@ organisateur, dashboard analytics (ventes, remplissage, revenus).
 **Prochain jalon (M6) :** frontend Next.js complet (catalogue, achat, « mes
 billets », écran de scan caméra, inscription/connexion organisateur,
 dashboard analytics) branché sur les API Django/FastAPI existantes.
+
+## 2026-09-16 — M6 : frontend Next.js complet
+
+**Construit et vérifié :**
+- `apps/web/` scaffoldé avec `create-next-app` (Next.js 16.3.5, App Router,
+  TypeScript, Tailwind CSS 4). Next.js 16 diffère significativement des
+  versions antérieures (voir `node_modules/next/dist/docs/`, consulté avant
+  d'écrire du code) — `params`/`searchParams` en promesses, `PageProps`/
+  `LayoutProps` générés automatiquement, etc.
+- Pages : `/` (catalogue, server component), `/evenements/[id]` (détail +
+  formulaire d'achat), `/commande/[transactionId]` (statut de paiement,
+  simulation en mode `simulator`, affichage des billets une fois émis),
+  `/mes-billets` (recherche par transaction_id + e-mail), `/scan` (caméra
+  `getUserMedia` + décodage `jsqr`, avec saisie manuelle du token en
+  secours), `/organisateurs/inscription`, `/organisateurs/connexion`,
+  `/organisateurs/tableau-de-bord` (analytics, protégé côté client par la
+  présence d'un JWT en `localStorage`).
+- `lib/api.ts` : client HTTP unique et typé vers `api-fastapi`, types
+  TypeScript alignés sur les schémas Pydantic (aucune duplication de
+  formats, juste retranscrits explicitement — pas de génération de client
+  automatique pour ce volume d'endpoints).
+- QR : encodage (`qrcode`) côté « mes billets »/commande, décodage (`jsqr`)
+  côté scan — aucune image QR générée côté backend (cf. M4), tout se passe
+  ici.
+- **CORS ajouté côté `api-fastapi`** (`CORSMiddleware`, origines autorisées
+  via `CORS_ALLOWED_ORIGINS`, `http://localhost:3000` par défaut) : le
+  frontend appelle FastAPI directement depuis le navigateur, pas de proxy.
+- Bug réel trouvé et corrigé en testant l'inscription organisateur depuis
+  un serveur fraîchement relancé : le routeur `organizers` n'était pas
+  enregistré dans le process `uvicorn` resté actif depuis M5 (pas de
+  `--reload`) — leçon de procédure, pas un bug de code (toujours relancer
+  proprement le serveur de vérification manuelle après un changement de
+  `main.py`).
+- `npm run build` et `npm run lint` systématiquement propres (0 erreur,
+  0 warning) après correction d'un typage implicite et de plusieurs
+  violations de la règle `react-hooks/set-state-in-effect` (nouvelle dans
+  cette version — lecture de `localStorage`/`sessionStorage` après montage
+  et fetch de données au montage, deux cas légitimes, documentés en ligne).
+- Vérification de bout en bout **sans navigateur réel** (environnement
+  CLI) : un vrai `uvicorn` + un vrai `next dev`, `curl` sur les pages
+  server-rendues (catalogue, détail événement) confirmant le contenu
+  attendu, puis tout le flux achat → paiement simulé → « mes billets » →
+  scan → dashboard organisateur rejoué avec les **mêmes requêtes HTTP**
+  que le code frontend. L'aller-retour QR (`qrcode` → `jsqr`) vérifié
+  séparément en Node avec un vrai token de billet : décodage exact.
+  Données de test nettoyées après coup, vérifié par comptage (0 ligne
+  restante).
+
+**Décisions techniques :**
+- **Le navigateur appelle FastAPI directement** (pas de proxy Next.js) :
+  plus simple, cohérent avec le choix JWT de M5 (un en-tête
+  `Authorization`, pas de cookie à faire transiter).
+- Simulation de paiement exposée dans l'UI (`/commande/...`) quand
+  `payment_url` est `null` (signe que le provider actif est `simulator`,
+  pas CinetPay) — clairement étiqueté « démo portfolio », cohérent avec
+  l'absence d'organisateurs réels/identifiants CinetPay à ce stade.
+- Dashboard organisateur protégé **côté client seulement** (vérification du
+  JWT dans `localStorage`, redirection sinon) — pas de middleware Next.js
+  ni de rendu serveur conditionnel : suffisant ici, la vraie protection
+  reste côté API (`GET /organizers/me/dashboard` exige un JWT valide et ne
+  retourne que les événements de l'organisateur authentifié).
+
+**Point ouvert signalé :** la capture caméra (`getUserMedia`) et la boucle
+de détection QR sur les frames vidéo n'ont pas pu être testées avec une
+vraie caméra dans cet environnement (CLI, pas de navigateur graphique) —
+seule la logique d'encodage/décodage QR elle-même a été vérifiée par un
+aller-retour réel. À tester manuellement dans un vrai navigateur avant
+toute démonstration en conditions réelles.
+
+**Prochain jalon (Mn) :** vérification complète `docker compose up
+--build`, assignation de sièges numérotés (point ouvert depuis M3),
+finalisation des README, proposition d'intégration au portfolio (diff
+soumis avant tout commit dans `c:\Portfolio`).
