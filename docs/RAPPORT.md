@@ -612,3 +612,47 @@ capturés et inspectés en image. `python manage.py check` sans erreur.
 d'edit/detail plus complexes avec inlines (Order avec ses Ticket, par
 exemple) — la palette générale s'applique partout via les variables CSS,
 mais leur mise en page fine n'a pas été inspectée visuellement une à une.
+
+## 2026-09-16 — Suite : « l'affichage est cassé » (retour utilisateur)
+
+Ismaël a remonté un affichage cassé après la passe précédente, sans plus
+de détail. Investigation complète avant de conclure quoi que ce soit.
+
+**Démarche :** capture d'écran de chaque page principale à largeur normale
+(login, dashboard, listes, formulaire d'ajout, fiche événement avec son
+formset tabulaire Tarifs) — toutes correctes à 1600 px. Le formset
+tabulaire de la fiche Événement (colonnes Section/Nom/Prix/Quota/dates/
+Supprimer) semblait en revanche visuellement cassé (colonnes empilées
+verticalement) une fois capturé à une largeur de fenêtre étroite (~700 px,
+la largeur par défaut d'une fenêtre Chrome headless sans taille explicite).
+
+**Vérifications pour isoler la cause réelle, avant de blâmer mon thème :**
+- Rejoué la même capture avec `custom_theme.css` désactivé en direct dans
+  la page (`link.disabled = true` via le protocole CDP) : le même rendu
+  « cassé » apparaît à l'identique — donc **pas une régression introduite
+  par ce thème**, un comportement déjà présent dans l'admin Django nu.
+- Inspection des styles calculés et des rectangles réels de chaque
+  cellule (`getBoundingClientRect`) : les cellules sont bien en
+  `display: table-cell`, alignées à la même coordonnée Y, positionnées
+  côte à côte (x croissant) — la table n'est **pas** structurellement
+  cassée. Ce qui ressemblait à un empilement dans la capture d'écran était
+  en réalité une table plus large que la fenêtre visible (7 colonnes),
+  dont seules les 2-3 premières colonnes tiennent dans ~655 px de large ;
+  le reste nécessite un défilement horizontal qui existe déjà nativement
+  (`.wrapper { overflow-x: auto }`) mais dont les colonnes, sans largeur
+  minimale, se tassaient au point de sembler illisibles/décousues au
+  premier coup d'œil dans une capture partielle.
+
+**Correctif appliqué malgré tout** (améliore un point rugueux réel, même
+s'il préexistait) : largeur minimale de 900px imposée à la table du
+formset tabulaire, pour que le défilement horizontal reste net (colonnes
+lisibles) plutôt qu'un tassement qui donne l'impression d'un rendu cassé.
+
+**Conclusion transmise à Ismaël :** rendu confirmé propre à largeur normale
+sur toutes les pages testées ; le seul point trouvé (défilement horizontal
+nécessaire sur les formsets à beaucoup de colonnes, en fenêtre étroite)
+est désormais net plutôt que tassé, mais reste un défilement — pas un
+tableau qui tient entièrement à l'écran sans action. Demande de précision
+(capture d'écran ou taille de fenêtre) en attente pour confirmer si c'est
+bien ce qu'il a vu, faute de quoi rien d'autre n'a pu être identifié comme
+cassé après une vérification systématique.

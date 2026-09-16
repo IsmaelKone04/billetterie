@@ -210,6 +210,24 @@ div.breadcrumbs a {
     width: calc(100% - 2rem);
 }
 
+/* ---------- Formsets en ligne (tabulaires) ---------- */
+/* Un formset tabulaire avec beaucoup de colonnes (ex. Tarifs sur la fiche
+   Événement : section, nom, prix, quota, dates, suppression) dépasse
+   largement une fenêtre étroite. Sans largeur minimale, chaque colonne se
+   tasse au point d'écraser le contenu des champs (select/inputs rognés) au
+   lieu de simplement défiler — reproductible même sans ce fichier de
+   thème, donc pas une régression introduite ici. On impose une largeur
+   minimale confortable à la table pour que les colonnes restent lisibles
+   et que ce soit un défilement horizontal net (barre de la div `wrapper`)
+   qui prenne le relais, plutôt qu'un tassement illisible. */
+.inline-related.tabular div.wrapper {
+    overflow-x: auto;
+}
+
+.inline-related.tabular fieldset.module table {
+    min-width: 900px;
+}
+
 /* ---------- Cartes / modules ---------- */
 .module,
 fieldset.module {
