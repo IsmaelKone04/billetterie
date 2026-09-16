@@ -178,6 +178,79 @@ async def catalogue():
 
 
 @pytest_asyncio.fixture
+async def numbered_seats(catalogue):
+    """Une section à 3 sièges numérotés (A1, A2, A3) et un tarif qui lui est
+    lié, pour l'événement publié de `catalogue`."""
+    async with engine.begin() as conn:
+        venue_id = (
+            await conn.execute(
+                text("SELECT venue_id FROM ticketing_event WHERE id = :event_id"),
+                {"event_id": catalogue["published_id"]},
+            )
+        ).scalar_one()
+
+        section_id = (
+            await conn.execute(
+                text(
+                    "INSERT INTO ticketing_section (venue_id, name, has_numbered_seats, capacity) "
+                    "VALUES (:venue_id, 'Fosse numérotée', true, 3) RETURNING id"
+                ),
+                {"venue_id": venue_id},
+            )
+        ).scalar_one()
+
+        seat_ids = []
+        for row, number in [("A", "1"), ("A", "2"), ("A", "3")]:
+            seat_id = (
+                await conn.execute(
+                    text(
+                        "INSERT INTO ticketing_seat (section_id, row, number) "
+                        "VALUES (:section_id, :row, :number) RETURNING id"
+                    ),
+                    {"section_id": section_id, "row": row, "number": number},
+                )
+            ).scalar_one()
+            seat_ids.append(seat_id)
+
+        seated_tt_id = (
+            await conn.execute(
+                text(
+                    "INSERT INTO ticketing_tickettype "
+                    "(name, price, quota, sales_start, sales_end, event_id, section_id) "
+                    "VALUES ('Fosse numérotée', '15000.00', 10, NULL, NULL, :event_id, :section_id) "
+                    "RETURNING id"
+                ),
+                {"event_id": catalogue["published_id"], "section_id": section_id},
+            )
+        ).scalar_one()
+
+    yield {
+        "section_id": section_id,
+        "seat_ids": seat_ids,
+        "seated_ticket_type_id": seated_tt_id,
+    }
+
+    async with engine.begin() as conn:
+        # Les Ticket créés par le test référencent ce tarif (on_delete=PROTECT
+        # côté Django) : à nettoyer avant le tarif lui-même — le teardown de
+        # `catalogue` (qui nettoie Order/Ticket/PaymentEvent) tourne après
+        # celui-ci, donc trop tard pour satisfaire cette contrainte ici.
+        await conn.execute(
+            text("DELETE FROM ticketing_ticket WHERE ticket_type_id = :id"),
+            {"id": seated_tt_id},
+        )
+        await conn.execute(
+            text("DELETE FROM ticketing_tickettype WHERE id = :id"), {"id": seated_tt_id}
+        )
+        await conn.execute(
+            text("DELETE FROM ticketing_seat WHERE section_id = :id"), {"id": section_id}
+        )
+        await conn.execute(
+            text("DELETE FROM ticketing_section WHERE id = :id"), {"id": section_id}
+        )
+
+
+@pytest_asyncio.fixture
 async def client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

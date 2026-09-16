@@ -4,15 +4,17 @@ Billetterie d'événements moderne pour le marché ivoirien — places numérot�
 scan de billets en temps réel, marketplace multi-organisateurs, analytics,
 paiement Mobile Money (CinetPay : Orange Money / MTN / Moov / Wave).
 
-> **État actuel : M6.** Back-office Django avec modèles noyau (organisateurs,
+> **État actuel : Mn.** Back-office Django avec modèles noyau (organisateurs,
 > lieux, plan de salle, événements, tarifs, commandes, billets), API FastAPI
-> (catalogue, achat, paiement Mobile Money, billets/QR, scan, marketplace
-> multi-organisateurs par JWT, dashboard analytics) et **frontend Next.js
-> complet** (catalogue, achat, « mes billets », scan par caméra,
-> inscription/connexion/dashboard organisateur), branché sur l'API FastAPI.
-> Reste à faire : assignation de sièges numérotés, vérification Docker
-> Compose de bout en bout, avant intégration au portfolio. Ce README est mis
-> à jour à chaque jalon (voir `docs/RAPPORT.md`).
+> (catalogue, achat, paiement Mobile Money, billets/QR avec **sièges
+> numérotés attribués automatiquement**, scan, marketplace multi-
+> organisateurs par JWT, dashboard analytics) et frontend Next.js complet
+> (catalogue, achat, « mes billets », scan par caméra, inscription/
+> connexion/dashboard organisateur), le tout vérifié de bout en bout via
+> `docker compose up --build` (5 services). Reste ouvert : capture caméra
+> non testée avec un vrai navigateur, pas de timeout automatique des
+> commandes en attente, CinetPay jamais testé en conditions réelles — voir
+> `docs/RAPPORT.md`. Ce README est mis à jour à chaque jalon.
 
 ## Stack
 
@@ -36,8 +38,19 @@ docs/RAPPORT.md      # journal de progression
 
 ## Lancer le projet
 
-Infra partagée (Postgres/Redis, ports décalés à 5433/6380 pour cohabiter
-avec le projet `monbail` sur cette machine) :
+**Stack complète** (Postgres, Redis, admin-django, api-fastapi, web) :
+
+```bash
+cp .env.example .env   # renseigner les secrets (voir commentaires du fichier)
+docker compose up --build
+```
+
+Ports publiés sur l'hôte : admin-django `8000`, api-fastapi `8010` (décalé,
+8000 déjà pris par Django), web `3000`, Postgres `5433`, Redis `6380`
+(décalés pour cohabiter avec le projet `monbail` sur cette machine).
+
+Pour ne lancer que l'infra (dev local des apps hors Docker, voir le README
+de chaque app) :
 
 ```bash
 docker compose up -d postgres redis

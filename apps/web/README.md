@@ -5,7 +5,7 @@ Frontend Next.js (App Router, TypeScript, Tailwind CSS) : vitrine, achat,
 dashboard analytics. Ne parle qu'aux API REST (`api-fastapi` pour tout ;
 `admin-django` n'est pas appelé directement par ce frontend).
 
-**État : M6 — frontend complet.**
+**État : Mn — frontend complet, vérifié via Docker Compose.**
 
 - `/` — catalogue des événements publiés.
 - `/evenements/[id]` — détail d'un événement, tarifs, formulaire d'achat.
@@ -38,14 +38,23 @@ définie par `NEXT_PUBLIC_API_URL` dans `apps/web/.env.local` (voir
 `api-fastapi` doit aussi autoriser cette origine en CORS
 (`CORS_ALLOWED_ORIGINS`, `http://localhost:3000` par défaut).
 
+Ou via Docker (voir `docker/web.Dockerfile` et le service `web` de
+`docker-compose.yml` à la racine) : `docker compose up --build web`. Deux
+variables d'URL distinctes y sont utilisées — voir `src/lib/api.ts` et
+`.env.example` (`NEXT_PUBLIC_API_URL` pour le navigateur,
+`API_INTERNAL_URL` pour les composants serveur qui tournent dans le
+conteneur `web` lui-même).
+
 ## Vérification
 
 Build (`npm run build`) et lint (`npm run lint`) systématiquement propres.
 Flux achat → paiement simulé → « mes billets » → scan vérifié de bout en
-bout en appelant directement l'API avec les mêmes requêtes que le code
-frontend (mêmes types TypeScript que les schémas FastAPI). L'encodage/
-décodage QR (`qrcode` + `jsqr`) vérifié par un aller-retour complet en
-Node avec un vrai token de billet.
+bout à travers la stack Docker complète (`docker compose up --build`),
+en appelant les ports publiés sur l'hôte avec les mêmes requêtes que le
+code frontend (mêmes types TypeScript que les schémas FastAPI), et en
+chargeant les pages server-rendues via `curl`. L'encodage/décodage QR
+(`qrcode` + `jsqr`) vérifié par un aller-retour complet en Node avec un
+vrai token de billet.
 
 **Non testé ici, nécessite un vrai navigateur avec caméra :** la capture
 vidéo `getUserMedia` et la boucle de détection QR sur les frames — signalé

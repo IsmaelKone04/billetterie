@@ -393,3 +393,103 @@ toute démonstration en conditions réelles.
 --build`, assignation de sièges numérotés (point ouvert depuis M3),
 finalisation des README, proposition d'intégration au portfolio (diff
 soumis avant tout commit dans `c:\Portfolio`).
+
+## 2026-09-16 — Mn : Docker Compose de bout en bout, sièges numérotés, finalisation
+
+**Docker Compose complet :**
+- Trois `Dockerfile` créés (`docker/admin.Dockerfile`, `docker/api.Dockerfile`,
+  `docker/web.Dockerfile`), contexte de build = racine du monorepo (comme
+  `monbail`, pour installer `packages/domain`). Django/FastAPI : image
+  `python:3.13-slim`, install en `cd apps/<app> && pip install -r
+  requirements.txt` — **piège découvert** : `-e ../../packages/domain` dans
+  `requirements.txt` est résolu par pip relativement au **répertoire courant
+  au moment de l'install**, pas au fichier requirements.txt lui-même (malgré
+  ce qu'indique la doc pip ≥ 21.3 pour les chemins simples) ; un premier essai
+  lançant `pip install -r apps/.../requirements.txt` depuis `/repo` a échoué
+  (« not a valid editable requirement »), corrigé en `cd`-ant dans le dossier
+  de l'app avant l'install. Web : multi-étapes Node 22 alpine, sortie
+  `standalone` (ajout de `output: "standalone"` à `next.config.ts`, absent
+  jusqu'ici).
+- `docker-compose.yml` : les trois services (`admin-django`, `api-fastapi`,
+  `web`), jusque-là commentés, activés avec healthchecks, `cap_drop: [ALL]`,
+  `no-new-privileges`. Ports hôte : `admin-django` sur 8000, `api-fastapi`
+  décalé sur **8010** (8000 déjà pris par Django), `web` sur 3000 — même
+  logique de décalage que Postgres/Redis en haut du fichier.
+- Ajout de `GET /health/` côté Django (`config/urls.py`) — absent jusqu'ici,
+  nécessaire pour le healthcheck Docker (FastAPI avait déjà `/health`).
+
+**Bug réel trouvé et corrigé — URL API selon le contexte d'exécution :**
+Next.js exécute le code des composants serveur (catalogue, détail
+événement) **dans le conteneur `web` lui-même**, pas dans le navigateur.
+`NEXT_PUBLIC_API_URL` est inlinée au build pour le navigateur
+(`http://localhost:8010`, le port publié sur l'hôte) — mais ce conteneur ne
+peut pas joindre `api-fastapi` via `localhost:8010` (c'est son propre
+`localhost`, pas celui de l'hôte). Constaté concrètement : `/` chargeait
+sans erreur mais sans événements (fetch serveur échoué, avalé par le
+try/catch de la page), et `/evenements/[id]` renvoyait une 500 (erreur
+serveur non catchée, relancée volontairement pour tout sauf 404). Corrigé en
+ajoutant une seconde variable, `API_INTERNAL_URL` (`http://api-fastapi:8000`,
+nom du service Docker), lue **uniquement côté serveur** (`typeof window ===
+"undefined"` dans `lib/api.ts`) — jamais inlinée, donc pas besoin de
+rebuild pour en changer la valeur en prod. Sans Docker (dev local),
+`API_INTERNAL_URL` est absente et tout retombe sur `NEXT_PUBLIC_API_URL`,
+puisque serveur et navigateur tournent alors sur le même hôte.
+
+**Vérification de bout en bout réelle, à travers les conteneurs (pas
+`pytest`, pas `next dev`) :** `docker compose up --build` (les 5 services
+sains), puis données de test insérées en SQL brut dans le conteneur
+`postgres`, et flux rejoué en HTTP réel contre les ports publiés
+(`localhost:8000/8010/3000`) : catalogue → détail événement → commande →
+paiement simulé → billets émis → scan (accepté puis refusé en double) →
+inscription/connexion organisateur (JWT) → dashboard analytics ; pages
+Next.js `/`, `/evenements/[id]`, `/mes-billets`, `/scan`,
+`/organisateurs/*` toutes vérifiées en 200 avec le contenu réel affiché
+côté serveur. Admin Django accessible sur `/admin/login/`. Données de test
+nettoyées et vérifiées à 0 ligne après coup.
+
+**Sièges numérotés (point ouvert depuis M3) :** implémenté côté
+`api-fastapi`. `Section`/`Seat` ajoutés aux modèles SQLAlchemy (existaient
+déjà côté Django/admin, jamais lus côté API). Dans `services/orders.py`, à
+la création d'une commande, pour chaque tarif lié à une section à places
+numérotées (`has_numbered_seats=True`) : calcul des sièges déjà retenus par
+des commandes non terminales du **même événement** sur cette section
+(même portée que le quota — `RESERVING_STATUSES`), attribution des
+premiers sièges libres (triés rangée/numéro), et **409 explicite**
+(`SeatsUnavailable`) si plus assez de sièges libres — avant même la
+création de la commande, donc aucune ligne orpheline. Le `seat_label`
+(ex. « A12 ») est renvoyé dans `GET /orders/{transaction_id}/tickets` et
+affiché sur le billet côté frontend (`TicketList.tsx`). Portée volontairement
+limitée au cas normal (une section ↔ un tarif) ; le cas d'école « deux
+tarifs différents pointant vers la même section » n'a pas de verrouillage
+dédié au-delà du verrou Redis déjà posé par tarif — non traité, jugé hors
+scope pour un MVP.
+- Tests : 2 nouveaux (`test_numbered_seats_assigned_and_never_reused` :
+  attribution, non-réutilisation, refus explicite si plus de sièges libres ;
+  `test_seated_ticket_appears_with_seat_label`). Suite complète :
+  21 → **23 tests, tous verts**.
+- **Bug de pollution de données trouvé pendant ces tests** (même discipline
+  qu'à M3) : le nouveau fixture `numbered_seats` supprimait d'abord le
+  `TicketType` puis les `Ticket` qui le référencent encore
+  (`on_delete=PROTECT` côté Django) → `IntegrityError`, qui interrompait la
+  chaîne de nettoyage des fixtures dépendantes (`catalogue` ne s'exécutait
+  plus derrière) et laissait des lignes orphelines (organisateur, lieu,
+  événement, commandes, billets) dans la base partagée. Corrigé en
+  inversant l'ordre (billets d'abord, tarif ensuite). Lignes orphelines
+  identifiées et supprimées manuellement, comptage revérifié à 0 partout.
+
+**Fait aussi :** README racine et des trois apps mis à jour (bannière
+d'état, sièges numérotés retiré des points ouverts).
+
+**Points ouverts, non traités ici (déjà connus, toujours valables) :**
+- Pas de timeout/libération automatique des commandes bloquées en
+  `paiement_en_attente` (M3).
+- `CinetPayProvider` jamais testé contre la vraie API CinetPay (M3).
+- Scan protégé par une clé partagée, pas par compte staff individuel ;
+  `Ticket.scanned_by` reste `NULL` (M4).
+- Pas de limitation de débit sur `POST /organizers/login` (M5).
+- Capture caméra (`getUserMedia`) et boucle de détection QR toujours pas
+  testées avec un vrai navigateur/une vraie caméra (M6) — à faire avant
+  toute démo réelle.
+
+**Prochaine étape :** proposition d'intégration au portfolio
+(`c:\Portfolio`) — diff soumis avant tout commit, comme convenu.

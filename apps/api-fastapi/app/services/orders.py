@@ -12,7 +12,7 @@ from redis.asyncio import Redis
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Event, Order, Ticket, TicketType
+from ..models import Event, Order, Seat, Section, Ticket, TicketType
 from ..schemas import OrderCreateIn
 from .locks import redis_lock_all, ticket_type_lock_key
 
@@ -40,6 +40,12 @@ class QuotaExceeded(Exception):
     def __init__(self, ticket_type_name: str):
         self.ticket_type_name = ticket_type_name
         super().__init__(f"Quota insuffisant pour « {ticket_type_name} »")
+
+
+class SeatsUnavailable(Exception):
+    def __init__(self, section_name: str):
+        self.section_name = section_name
+        super().__init__(f"Plus assez de sièges libres dans la section « {section_name} »")
 
 
 async def create_order(session: AsyncSession, redis: Redis, payload: OrderCreateIn) -> Order:
@@ -73,6 +79,56 @@ async def create_order(session: AsyncSession, redis: Redis, payload: OrderCreate
             if reserved + requested_qty > ticket_types_by_id[tt_id].quota:
                 raise QuotaExceeded(ticket_types_by_id[tt_id].name)
 
+        # Sièges numérotés : un siège par billet, réservé dès la commande
+        # (comme le quota), jamais réattribué tant que la commande qui le
+        # retient n'est pas échouée/annulée/remboursée. Portée par
+        # (section, événement) : une même section peut être revendue pour
+        # un autre événement au même lieu sans conflit.
+        seats_by_ticket_type: dict[int, list[int]] = {}
+        section_ids = {
+            ticket_types_by_id[tt_id].section_id
+            for tt_id in quantities
+            if ticket_types_by_id[tt_id].section_id is not None
+        }
+        if section_ids:
+            sections_result = await session.execute(
+                select(Section).where(Section.id.in_(section_ids))
+            )
+            numbered_section_ids = {
+                s.id: s.name for s in sections_result.scalars() if s.has_numbered_seats
+            }
+            for section_id, section_name in numbered_section_ids.items():
+                requested_for_section = sum(
+                    qty
+                    for tt_id, qty in quantities.items()
+                    if ticket_types_by_id[tt_id].section_id == section_id
+                )
+                taken_result = await session.execute(
+                    select(Ticket.seat_id)
+                    .join(TicketType, Ticket.ticket_type_id == TicketType.id)
+                    .join(Order, Ticket.order_id == Order.id)
+                    .where(
+                        TicketType.section_id == section_id,
+                        TicketType.event_id == event.id,
+                        Order.status.in_(RESERVING_STATUSES),
+                        Ticket.seat_id.is_not(None),
+                    )
+                )
+                taken_ids = {row[0] for row in taken_result}
+                available_result = await session.execute(
+                    select(Seat.id)
+                    .where(Seat.section_id == section_id, Seat.id.not_in(taken_ids))
+                    .order_by(Seat.row, Seat.number)
+                )
+                available_ids = [row[0] for row in available_result]
+                if len(available_ids) < requested_for_section:
+                    raise SeatsUnavailable(section_name)
+
+                cursor = iter(available_ids)
+                for tt_id, qty in quantities.items():
+                    if ticket_types_by_id[tt_id].section_id == section_id:
+                        seats_by_ticket_type[tt_id] = [next(cursor) for _ in range(qty)]
+
         now = datetime.now(timezone.utc)
         amount_total: Decimal = sum(
             (ticket_types_by_id[tt_id].price * qty for tt_id, qty in quantities.items()),
@@ -94,12 +150,13 @@ async def create_order(session: AsyncSession, redis: Redis, payload: OrderCreate
         await session.flush()
 
         for tt_id, qty in quantities.items():
-            for _ in range(qty):
+            seat_ids = seats_by_ticket_type.get(tt_id)
+            for i in range(qty):
                 session.add(
                     Ticket(
                         order_id=order.id,
                         ticket_type_id=tt_id,
-                        seat_id=None,
+                        seat_id=seat_ids[i] if seat_ids else None,
                         qr_secret=str(uuid.uuid4()),
                         status="valide",
                     )

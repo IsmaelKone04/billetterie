@@ -59,6 +59,7 @@ class TicketOut(BaseModel):
     ticket_type_name: str
     status: str
     qr_token: str
+    seat_label: str | None = None
 
 
 class OrderTicketsOut(BaseModel):

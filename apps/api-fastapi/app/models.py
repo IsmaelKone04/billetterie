@@ -43,6 +43,25 @@ class Venue(Base):
     address: Mapped[str]
 
 
+class Section(Base):
+    __tablename__ = "ticketing_section"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    venue_id: Mapped[int] = mapped_column(ForeignKey("ticketing_venue.id"))
+    name: Mapped[str]
+    has_numbered_seats: Mapped[bool]
+    capacity: Mapped[int]
+
+
+class Seat(Base):
+    __tablename__ = "ticketing_seat"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    section_id: Mapped[int] = mapped_column(ForeignKey("ticketing_section.id"))
+    row: Mapped[str]
+    number: Mapped[str]
+
+
 class Event(Base):
     __tablename__ = "ticketing_event"
 
@@ -100,7 +119,7 @@ class Ticket(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("ticketing_order.id"))
     ticket_type_id: Mapped[int] = mapped_column(ForeignKey("ticketing_tickettype.id"))
-    seat_id: Mapped[int | None]
+    seat_id: Mapped[int | None] = mapped_column(ForeignKey("ticketing_seat.id"))
     qr_secret: Mapped[str] = mapped_column(default=lambda: str(uuid.uuid4()))
     status: Mapped[str] = mapped_column(default="valide")
     scanned_at: Mapped[datetime | None] = mapped_column(default=None)
@@ -108,6 +127,7 @@ class Ticket(Base):
 
     order: Mapped["Order"] = relationship(back_populates="tickets")
     ticket_type: Mapped["TicketType"] = relationship()
+    seat: Mapped["Seat | None"] = relationship()
 
 
 class PaymentEvent(Base):

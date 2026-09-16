@@ -2,7 +2,17 @@
 // requêtes passent par cette fonction pour centraliser la gestion d'erreur
 // et l'URL de base — jamais d'URL FastAPI en dur ailleurs dans le code.
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Deux origines différentes selon qui exécute le fetch : le navigateur (code
+// client) ne connaît que les ports publiés sur l'hôte (NEXT_PUBLIC_API_URL,
+// inlinée au build) ; les composants serveur Next.js tournent eux-mêmes dans
+// le conteneur `web` et doivent joindre `api-fastapi` par son nom de service
+// Docker (API_INTERNAL_URL, lue à l'exécution — jamais inlinée). Hors Docker
+// (dev local), API_INTERNAL_URL est absente et on retombe sur la même URL
+// que le navigateur, puisque les deux tournent alors sur le même hôte.
+export const API_URL =
+  typeof window === "undefined"
+    ? (process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000")
+    : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000");
 
 export class ApiError extends Error {
   status: number;
@@ -59,7 +69,13 @@ export type OrderCreateOut = {
   payment_url: string | null;
 };
 
-export type TicketOut = { id: number; ticket_type_name: string; status: string; qr_token: string };
+export type TicketOut = {
+  id: number;
+  ticket_type_name: string;
+  status: string;
+  qr_token: string;
+  seat_label: string | null;
+};
 
 export type OrderTicketsOut = {
   transaction_id: string;

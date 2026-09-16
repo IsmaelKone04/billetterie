@@ -17,6 +17,9 @@ export default function TicketList({ order }: { order: OrderTicketsOut }) {
           >
             <TicketQr token={ticket.qr_token} />
             <p className="font-medium text-slate-800">{ticket.ticket_type_name}</p>
+            {ticket.seat_label && (
+              <p className="text-sm text-slate-600">Siège {ticket.seat_label}</p>
+            )}
             <p className="text-xs uppercase tracking-wide text-slate-500">
               {ticket.status === "scanne" ? "Déjà scanné" : "Valide"}
             </p>

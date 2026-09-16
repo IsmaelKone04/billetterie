@@ -11,7 +11,13 @@ from ..payments import get_payment_provider
 from ..redis_client import redis
 from ..schemas import OrderCreateIn, OrderCreateOut, OrderTicketsOut, TicketOut
 from ..services.locks import LockAcquisitionError
-from ..services.orders import EventNotFound, InvalidTicketType, QuotaExceeded, create_order
+from ..services.orders import (
+    EventNotFound,
+    InvalidTicketType,
+    QuotaExceeded,
+    SeatsUnavailable,
+    create_order,
+)
 from ..services.qr import QrConfigError, build_qr_token
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -28,6 +34,8 @@ async def create_order_endpoint(
     except InvalidTicketType as exc:
         raise HTTPException(status_code=400, detail="Tarif invalide pour cet événement") from exc
     except QuotaExceeded as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except SeatsUnavailable as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except LockAcquisitionError as exc:
         raise HTTPException(
@@ -76,6 +84,7 @@ async def get_order_tickets(
         .options(
             selectinload(Order.event),
             selectinload(Order.tickets).selectinload(Ticket.ticket_type),
+            selectinload(Order.tickets).selectinload(Ticket.seat),
         )
     )
     order = result.scalar_one_or_none()
@@ -94,6 +103,7 @@ async def get_order_tickets(
                 ticket_type_name=ticket.ticket_type.name,
                 status=ticket.status,
                 qr_token=build_qr_token(ticket.id, ticket.qr_secret),
+                seat_label=f"{ticket.seat.row}{ticket.seat.number}" if ticket.seat else None,
             )
             for ticket in order.tickets
         ]

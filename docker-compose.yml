@@ -35,40 +35,104 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  # admin-django:
-  #   build: ./apps/admin-django
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   environment:
-  #     TZ: Africa/Abidjan
-  #   security_opt:
-  #     - no-new-privileges:true
-  #   cap_drop:
-  #     - ALL
-  #
-  # api-fastapi:
-  #   build: ./apps/api-fastapi
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   environment:
-  #     TZ: Africa/Abidjan
-  #   security_opt:
-  #     - no-new-privileges:true
-  #   cap_drop:
-  #     - ALL
-  #
-  # web:
-  #   build: ./apps/web
-  #   depends_on:
-  #     - api-fastapi
-  #   security_opt:
-  #     - no-new-privileges:true
-  #   cap_drop:
-  #     - ALL
+  admin-django:
+    build:
+      context: .
+      dockerfile: docker/admin.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      TZ: Africa/Abidjan
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      POSTGRES_DB: ${POSTGRES_DB:-billetterie}
+      POSTGRES_USER: ${POSTGRES_USER:-billetterie}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  api-fastapi:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Africa/Abidjan
+      POSTGRES_DB: ${POSTGRES_DB:-billetterie}
+      POSTGRES_USER: ${POSTGRES_USER:-billetterie}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      API_DEBUG: ${API_DEBUG:-true}
+      JWT_SECRET: ${JWT_SECRET}
+      SCAN_API_KEY: ${SCAN_API_KEY}
+      ORGANIZER_JWT_SECRET: ${ORGANIZER_JWT_SECRET}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-simulator}
+      CINETPAY_API_KEY: ${CINETPAY_API_KEY:-}
+      CINETPAY_SITE_ID: ${CINETPAY_SITE_ID:-}
+      CINETPAY_SECRET_KEY: ${CINETPAY_SECRET_KEY:-}
+      CINETPAY_NOTIFY_URL: ${CINETPAY_NOTIFY_URL:-}
+      CINETPAY_BASE_URL: ${CINETPAY_BASE_URL:-https://api-checkout.cinetpay.com}
+      SIMULATOR_SECRET: ${SIMULATOR_SECRET:-dev-simulator-secret}
+    # Port hôte décalé à 8010 : 8000 est déjà pris par admin-django (même
+    # convention que le décalage Postgres/Redis en haut de ce fichier).
+    ports:
+      - "127.0.0.1:8010:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        # Doit être joignable depuis le navigateur : le port hôte publié par
+        # api-fastapi ci-dessus, pas le nom du service Docker interne.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8010}
+    restart: unless-stopped
+    depends_on:
+      api-fastapi:
+        condition: service_healthy
+    environment:
+      # Utilisée par les composants serveur Next.js (tournent dans CE
+      # conteneur, donc joignent api-fastapi par son nom de service, pas par
+      # le port publié sur l'hôte) — voir apps/web/src/lib/api.ts.
+      API_INTERNAL_URL: http://api-fastapi:8000
+    ports:
+      - "127.0.0.1:3000:3000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
 volumes:
   postgres_data:
