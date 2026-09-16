@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "billetterie-domain"
+version = "0.1.0"
+description = "Schémas et machine à états partagés entre admin-django et api-fastapi."
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+include = ["domain*"]

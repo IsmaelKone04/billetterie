@@ -1,6 +1,16 @@
 from django.contrib import admin
 
-from .models import Event, Organizer, Seat, Section, TicketType, Venue
+from .models import (
+    Event,
+    Order,
+    Organizer,
+    PaymentEvent,
+    Seat,
+    Section,
+    Ticket,
+    TicketType,
+    Venue,
+)
 
 
 @admin.register(Organizer)
@@ -44,3 +54,59 @@ class EventAdmin(admin.ModelAdmin):
 class TicketTypeAdmin(admin.ModelAdmin):
     list_display = ("event", "name", "price", "quota", "section")
     list_filter = ("event",)
+
+
+class TicketInline(admin.TabularInline):
+    model = Ticket
+    extra = 0
+    readonly_fields = ("qr_secret", "scanned_at", "scanned_by")
+
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = (
+        "transaction_id",
+        "event",
+        "buyer_email",
+        "amount_total",
+        "status",
+        "payment_provider",
+        "created_at",
+    )
+    list_filter = ("status", "payment_provider", "event")
+    search_fields = ("transaction_id", "buyer_email", "buyer_phone")
+    readonly_fields = ("transaction_id", "created_at", "updated_at")
+    inlines = [TicketInline]
+
+
+@admin.register(Ticket)
+class TicketAdmin(admin.ModelAdmin):
+    list_display = ("id", "order", "ticket_type", "seat", "status", "scanned_at")
+    list_filter = ("status", "ticket_type__event")
+    search_fields = ("qr_secret", "order__transaction_id", "order__buyer_email")
+    readonly_fields = ("qr_secret",)
+
+
+@admin.register(PaymentEvent)
+class PaymentEventAdmin(admin.ModelAdmin):
+    """Journal d'audit — lecture seule, jamais modifié à la main."""
+
+    list_display = (
+        "provider",
+        "provider_event_id",
+        "order",
+        "outcome",
+        "signature_valid",
+        "received_at",
+    )
+    list_filter = ("provider", "outcome", "signature_valid")
+    search_fields = ("provider_event_id", "order__transaction_id")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

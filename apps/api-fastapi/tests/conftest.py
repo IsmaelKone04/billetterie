@@ -13,16 +13,18 @@ from sqlalchemy import text
 
 from app.database import engine
 from app.main import app
+from app.redis_client import redis as redis_client
 
 
 @pytest_asyncio.fixture(autouse=True)
 async def _dispose_engine_after_test():
-    # pytest-asyncio ouvre une nouvelle boucle asyncio par test ; le pool de
-    # connexions asyncpg du moteur (créé au niveau module) doit donc être
-    # vidé après chaque test pour ne pas réutiliser une connexion liée à une
-    # boucle déjà fermée.
+    # pytest-asyncio ouvre une nouvelle boucle asyncio par test ; les pools
+    # de connexions (asyncpg pour SQLAlchemy, le client Redis) sont créés au
+    # niveau module et doivent donc être vidés après chaque test pour ne pas
+    # réutiliser une connexion liée à une boucle déjà fermée.
     yield
     await engine.dispose()
+    await redis_client.aclose()
 
 
 @pytest_asyncio.fixture
@@ -103,21 +105,56 @@ async def catalogue():
             )
         ).scalar_one()
 
-        await conn.execute(
-            text(
-                "INSERT INTO ticketing_tickettype "
-                "(name, price, quota, sales_start, sales_end, event_id, section_id) "
-                "VALUES (:name, :price, :quota, NULL, NULL, :event_id, NULL)"
-            ),
-            [
-                {"name": "Standard", "price": "5000.00", "quota": 100, "event_id": published_id},
-                {"name": "VIP", "price": "25000.00", "quota": 20, "event_id": published_id},
-            ],
-        )
+        standard_tt_id = (
+            await conn.execute(
+                text(
+                    "INSERT INTO ticketing_tickettype "
+                    "(name, price, quota, sales_start, sales_end, event_id, section_id) "
+                    "VALUES ('Standard', '5000.00', 100, NULL, NULL, :event_id, NULL) "
+                    "RETURNING id"
+                ),
+                {"event_id": published_id},
+            )
+        ).scalar_one()
 
-    yield {"published_id": published_id, "draft_id": draft_id}
+        vip_tt_id = (
+            await conn.execute(
+                text(
+                    "INSERT INTO ticketing_tickettype "
+                    "(name, price, quota, sales_start, sales_end, event_id, section_id) "
+                    "VALUES ('VIP', '25000.00', 20, NULL, NULL, :event_id, NULL) "
+                    "RETURNING id"
+                ),
+                {"event_id": published_id},
+            )
+        ).scalar_one()
+
+    yield {
+        "published_id": published_id,
+        "draft_id": draft_id,
+        "standard_ticket_type_id": standard_tt_id,
+        "vip_ticket_type_id": vip_tt_id,
+    }
 
     async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "DELETE FROM ticketing_paymentevent WHERE order_id IN "
+                "(SELECT id FROM ticketing_order WHERE event_id = ANY(:ids))"
+            ),
+            {"ids": [published_id, draft_id]},
+        )
+        await conn.execute(
+            text(
+                "DELETE FROM ticketing_ticket WHERE order_id IN "
+                "(SELECT id FROM ticketing_order WHERE event_id = ANY(:ids))"
+            ),
+            {"ids": [published_id, draft_id]},
+        )
+        await conn.execute(
+            text("DELETE FROM ticketing_order WHERE event_id = ANY(:ids)"),
+            {"ids": [published_id, draft_id]},
+        )
         await conn.execute(
             text("DELETE FROM ticketing_tickettype WHERE event_id = ANY(:ids)"),
             {"ids": [published_id, draft_id]},

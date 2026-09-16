@@ -117,3 +117,95 @@ surveiller si ça devient source de bugs).
 **Prochain jalon (M3) :** achat — `Order`/`Ticket`, verrouillage Redis
 anti-survente, intégration CinetPay + provider `simulator`, webhook +
 vérification systématique.
+
+---
+
+## 2026-09-16 — M3 : achat, verrouillage Redis, paiement Mobile Money
+
+**Fait :**
+- Nouveau package partagé `packages/domain` (`domain/order_state_machine.py`) :
+  machine à états de la commande (`OrderStatus`, `ORDER_TRANSITIONS`,
+  `verifier_transition()`), pattern porté de monbail
+  (`escrow-state-machine.ts`). Installé en editable (`pip install -e`) dans
+  les venvs `admin-django` et `api-fastapi` — les deux étant en Python, pas
+  besoin de dupliquer le graphe de transitions comme monbail devait le faire
+  entre TypeScript (Next.js/Nest) et son domaine partagé.
+- Modèles Django ajoutés (`ticketing/models.py`, migration `0002`) : `Order`
+  (commande publique, sans compte utilisateur requis — email/téléphone),
+  `Ticket` (un par place, `qr_secret` unique généré côté application),
+  `PaymentEvent` (audit de chaque webhook reçu, lecture seule dans l'admin).
+  Admin enregistré avec inlines (billets dans une commande).
+- Côté `api-fastapi`, modèles SQLAlchemy miroir (désormais en **lecture ET
+  écriture** pour `Order`/`Ticket`/`PaymentEvent`, toujours en lecture seule
+  pour le catalogue) : ajout de `type_annotation_map` sur `Base` pour mapper
+  `datetime` → `TIMESTAMP WITH TIME ZONE` (sans quoi asyncpg refuse les
+  datetimes timezone-aware qu'on écrit).
+- Verrouillage Redis anti-survente (`app/services/locks.py`) : verrou court
+  (`SET NX EX`, TTL 10 s) par tarif (`ticket_type_id`), acquis dans un ordre
+  trié pour plusieurs tarifs à la fois (pas d'interblocage). Le contrôle de
+  quota définitif reste fait en base (comptage des billets déjà réservés par
+  des commandes non `echouee`/`annulee`) — Redis sert de point de
+  sérialisation rapide, pas de source de vérité du stock (pattern
+  d'idempotence repris de monbail, `redis-py` async au lieu d'`ioredis`).
+- `POST /orders` (`api-fastapi`) : valide le panier, verrouille, réserve les
+  billets **immédiatement** (créés dès la commande, avant paiement — c'est
+  ce qui retient le stock pendant la fenêtre de paiement), puis appelle le
+  provider de paiement actif.
+- Deux providers de paiement (`app/payments/`), interface commune
+  `PaymentProvider` :
+  - `CinetPayProvider` : `POST /v2/payment` (arrondi du montant XOF au
+    multiple de 5), webhook `notify_url` (HMAC-SHA256 de 16 champs `cpm_*`
+    concaténés dans l'ordre documenté, en-tête `x-token`), puis
+    `POST /v2/payment/check` **systématique** avant toute émission de
+    billets — jamais de confiance aveugle au webhook seul. Ordre des champs
+    et logique repris tels quels de l'intégration monbail
+    (`cinetpay.provider.ts`), déjà éprouvée sur ce marché. Lève une erreur
+    explicite si les identifiants CinetPay ne sont pas configurés (pas de
+    simulation silencieuse).
+  - `SimulatorProvider` : webhook auto-signé HMAC (secret dev dédié,
+    `SIMULATOR_SECRET`, sans rapport avec CinetPay) ; `requires_check =
+    False` car il n'y a pas de système externe distinct à interroger — le
+    webhook auto-signé est la seule source de vérité. Déclenchable via
+    `POST /payments/simulate` (dev/tests uniquement, actif seulement si
+    `PAYMENT_PROVIDER=simulator`).
+- `POST /payments/webhook/{provider}` : point d'entrée commun aux deux
+  providers — vérifie la signature, appelle `check()` si le provider l'exige,
+  déduplique par `provider_event_id` (`PaymentEvent` unique en base, pattern
+  repris de monbail), applique la transition d'état (`PAIEMENT_EN_ATTENTE` →
+  `PAYEE` → `BILLETS_EMIS`, ou → `ECHOUEE`) via la machine à états partagée.
+- 11 tests d'intégration (6 catalogue + 5 achat/paiement) contre le vrai
+  Postgres et le vrai Redis partagés avec `admin-django` : réservation de
+  quota, refus si quota dépassé, événement inconnu, paiement réussi (émission
+  des billets), paiement échoué, rejet de signature invalide,
+  **idempotence** du webhook (rejouer la même notification ne ré-applique
+  rien). Nettoyage systématique après chaque test — vérifié par comptage
+  après coup (0 ligne restante sur les 7 tables concernées).
+- Vérification manuelle de bout en bout avec un **vrai serveur `uvicorn`** et
+  un **vrai webhook HTTP signé** (pas seulement le raccourci de test
+  `/payments/simulate`) : événement créé via `manage.py shell` (Django),
+  `POST /orders` (réservation de 2 billets), `POST /payments/webhook/simulator`
+  avec une signature HMAC calculée manuellement en Python — commande passée à
+  `billets_emis`, 2 billets `valide` avec QR secrets uniques, `PaymentEvent`
+  journalisé. Données de test nettoyées après coup (vérifié).
+
+**Décisions techniques :**
+- Les billets sont créés **dès la réservation** (avant paiement confirmé),
+  pas seulement à l'émission — c'est ce qui protège le quota pendant la
+  fenêtre de paiement. Une commande `echouee`/`annulee` libère implicitement
+  le quota (exclue du comptage des billets « réservés »). Pas de timeout
+  automatique de libération des commandes `paiement_en_attente` restées
+  bloquées — **point ouvert**, à traiter avant un usage en production (tâche
+  planifiée ou TTL).
+- Places numérotées (`Seat`) non gérées à ce stade : tous les billets sont
+  créés avec `seat_id = NULL`, quel que soit le tarif. L'assignation de
+  sièges spécifiques pour les sections à places numérotées reste à faire
+  (probablement au jalon frontend, M6, où la sélection de siège a du sens
+  côté UI) — **point ouvert**, non implémenté, signalé plutôt qu'ignoré.
+- Identifiants CinetPay réels toujours indisponibles → `CinetPayProvider`
+  n'a été vérifié que par lecture de code et cohérence avec l'intégration
+  monbail, **pas par un appel réel à l'API CinetPay**. À tester dès que des
+  identifiants seront disponibles.
+
+**Prochain jalon (M4) :** billets — génération QR signé (au-delà du
+`qr_secret` brut actuel), page « mes billets », endpoint de scan +
+vérification anti-duplication, écran de scan Next.js.

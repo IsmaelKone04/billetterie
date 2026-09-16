@@ -1,5 +1,9 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
+
+from domain.order_state_machine import ORDER_STATUS_LABELS, OrderStatus
 
 
 class Organizer(models.Model):
@@ -154,3 +158,125 @@ class TicketType(models.Model):
 
     def __str__(self):
         return f"{self.event.title} — {self.name} ({self.price} FCFA)"
+
+
+class Order(models.Model):
+    """Commande d'un acheteur pour un événement — achat public sans compte
+    utilisateur (email/téléphone suffisent). Statut piloté par la machine à
+    états partagée `domain.order_state_machine` (transitions vérifiées côté
+    api-fastapi avant toute écriture)."""
+
+    STATUS_CHOICES = [(status.value, ORDER_STATUS_LABELS[status]) for status in OrderStatus]
+
+    event = models.ForeignKey(
+        Event, on_delete=models.PROTECT, related_name="orders", verbose_name="événement"
+    )
+    buyer_email = models.EmailField("e-mail acheteur")
+    buyer_phone = models.CharField("téléphone acheteur", max_length=30)
+    status = models.CharField(
+        "statut", max_length=30, choices=STATUS_CHOICES, default=OrderStatus.CREEE.value
+    )
+    amount_total = models.DecimalField("montant total (FCFA)", max_digits=10, decimal_places=2)
+    payment_provider = models.CharField(
+        "provider de paiement", max_length=20, blank=True, help_text="'simulator' ou 'cinetpay'"
+    )
+    transaction_id = models.CharField(
+        "identifiant de transaction",
+        max_length=64,
+        unique=True,
+        help_text="Généré à la création de la commande, transmis au provider de paiement.",
+    )
+    created_at = models.DateTimeField("créée le", auto_now_add=True)
+    updated_at = models.DateTimeField("mise à jour le", auto_now=True)
+
+    class Meta:
+        verbose_name = "commande"
+        verbose_name_plural = "commandes"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Commande {self.transaction_id} ({self.get_status_display()})"
+
+
+class Ticket(models.Model):
+    """Un billet vendu — un par place. `qr_secret` est le token encodé dans
+    le QR (jamais l'ID brut, pour empêcher la fabrication de faux billets)."""
+
+    class Statut(models.TextChoices):
+        VALIDE = "valide", "Valide"
+        SCANNE = "scanne", "Scanné"
+        ANNULE = "annule", "Annulé"
+
+    order = models.ForeignKey(
+        Order, on_delete=models.CASCADE, related_name="tickets", verbose_name="commande"
+    )
+    ticket_type = models.ForeignKey(
+        TicketType, on_delete=models.PROTECT, related_name="tickets", verbose_name="tarif"
+    )
+    seat = models.ForeignKey(
+        Seat,
+        on_delete=models.PROTECT,
+        related_name="tickets",
+        verbose_name="siège",
+        null=True,
+        blank=True,
+    )
+    qr_secret = models.CharField(
+        "secret QR", max_length=64, unique=True, default=uuid.uuid4, editable=False
+    )
+    status = models.CharField(
+        "statut", max_length=20, choices=Statut.choices, default=Statut.VALIDE
+    )
+    scanned_at = models.DateTimeField("scanné le", null=True, blank=True)
+    scanned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="tickets_scanned",
+        verbose_name="scanné par",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        verbose_name = "billet"
+        verbose_name_plural = "billets"
+
+    def __str__(self):
+        return f"Billet {self.pk} — {self.ticket_type} ({self.get_status_display()})"
+
+
+class PaymentEvent(models.Model):
+    """Journal d'audit de chaque webhook de paiement reçu (CinetPay ou
+    simulateur) — signature vérifiée ou non, appliqué ou non. Déduplication
+    par `provider_event_id` (pattern repris de monbail)."""
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.SET_NULL,
+        related_name="payment_events",
+        verbose_name="commande",
+        null=True,
+        blank=True,
+    )
+    provider = models.CharField("provider", max_length=20)
+    provider_event_id = models.CharField(
+        "identifiant d'événement (provider)", max_length=100, unique=True
+    )
+    event_type = models.CharField("type d'événement", max_length=50, blank=True)
+    signature_valid = models.BooleanField("signature valide")
+    raw_payload = models.JSONField("payload brut")
+    outcome = models.CharField(
+        "résultat",
+        max_length=20,
+        help_text="'applique', 'ignore', 'rejete' ou 'signature_invalide'.",
+    )
+    received_at = models.DateTimeField("reçu le", auto_now_add=True)
+    processed_at = models.DateTimeField("traité le", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "événement de paiement"
+        verbose_name_plural = "événements de paiement"
+        ordering = ["-received_at"]
+
+    def __str__(self):
+        return f"{self.provider}:{self.provider_event_id} ({self.outcome})"

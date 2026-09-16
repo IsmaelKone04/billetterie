@@ -3,9 +3,12 @@
 Back-office Django : gestion événements, organisateurs, plan de salle, staff.
 Propriétaire du schéma Postgres (migrations).
 
-**État : M1 — modèles noyau.** `Organizer`, `Venue`, `Section`, `Seat`,
-`Event`, `TicketType` + admin basique (avec inlines). Pas encore de logique
-d'achat/paiement (elle vivra côté `api-fastapi`, sur le même schéma).
+**État : M3 — modèles noyau + achat/paiement.** `Organizer`, `Venue`,
+`Section`, `Seat`, `Event`, `TicketType`, `Order`, `Ticket`, `PaymentEvent` +
+admin (avec inlines ; `PaymentEvent` en lecture seule, c'est un journal
+d'audit). La logique d'achat/paiement (verrouillage, appels CinetPay,
+webhooks) vit côté `api-fastapi`, sur ce même schéma — Django ne fait
+qu'exposer les données pour le back-office.
 
 ## Lancer en local
 
