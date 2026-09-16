@@ -82,3 +82,38 @@ via `POSTGRES_PORT`/`REDIS_PORT` dans `.env`.
 
 **Prochain jalon (M2) :** FastAPI — catalogue public en lecture seule sur la
 même base Postgres.
+
+---
+
+## 2026-09-15 — M2 : FastAPI, catalogue public en lecture seule
+
+**Fait :**
+- Projet FastAPI scaffoldé dans `apps/api-fastapi/` (FastAPI 0.141.1,
+  SQLAlchemy 2.0 async + asyncpg, `app/`).
+- Modèles SQLAlchemy en lecture seule (`app/models.py`) reflétant exactement
+  le schéma créé par Django (`ticketing_organizer`, `ticketing_venue`,
+  `ticketing_event`, `ticketing_tickettype`, vérifié via `\d` sur le vrai
+  Postgres) — FastAPI ne crée ni ne modifie jamais de table, Django reste
+  seul propriétaire des migrations.
+- Endpoints : `GET /events` (liste des événements au statut `publie`,
+  triés par date), `GET /events/{id}` (détail + tarifs, 404 si absent ou non
+  publié), `GET /health`.
+- Suite de tests d'intégration (`pytest` + `httpx.AsyncClient`, 5 tests)
+  contre le **vrai** Postgres partagé avec `admin-django` : insertion de
+  données de test en SQL brut puis nettoyage systématique après chaque test
+  (aucune pollution laissée en base — vérifié par comptage après coup).
+  Couvre : filtrage brouillon/publié, 404 sur événement inconnu ou non
+  publié, contenu du détail (lieu, tarifs).
+- Vérification manuelle : `uvicorn` lancé en local, `/health` → 200,
+  `/events` → `[]` (base de dev vide, aucun événement réel créé), `/events/1`
+  → 404.
+
+**Décision technique :** pas de dépendance croisée avec le code Django (pas
+d'import du modèle Django) — FastAPI redéfinit son propre mapping
+SQLAlchemy vers les mêmes tables. Si le schéma Django change, il faudra
+répercuter le changement ici manuellement (accepté pour l'instant, à
+surveiller si ça devient source de bugs).
+
+**Prochain jalon (M3) :** achat — `Order`/`Ticket`, verrouillage Redis
+anti-survente, intégration CinetPay + provider `simulator`, webhook +
+vérification systématique.

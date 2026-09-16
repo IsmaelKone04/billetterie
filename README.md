@@ -4,8 +4,10 @@ Billetterie d'événements moderne pour le marché ivoirien — places numérot�
 scan de billets en temps réel, marketplace multi-organisateurs, analytics,
 paiement Mobile Money (CinetPay : Orange Money / MTN / Moov / Wave).
 
-> **État actuel : M0 — squelette du projet.** Aucune fonctionnalité n'est
-> encore implémentée. Ce README sera mis à jour à chaque jalon (voir
+> **État actuel : M2.** Back-office Django avec modèles noyau
+> (organisateurs, lieux, plan de salle, événements, tarifs) et API FastAPI
+> avec catalogue public en lecture seule. Pas encore d'achat, de paiement,
+> de billets ni de frontend. Ce README est mis à jour à chaque jalon (voir
 > `docs/RAPPORT.md`).
 
 ## Stack
@@ -30,8 +32,17 @@ docs/RAPPORT.md      # journal de progression
 
 ## Lancer le projet
 
-À compléter au fur et à mesure des jalons (voir `docs/RAPPORT.md`). Pour
-l'instant, aucun service n'est fonctionnel.
+Infra partagée (Postgres/Redis, ports décalés à 5433/6380 pour cohabiter
+avec le projet `monbail` sur cette machine) :
+
+```bash
+docker compose up -d postgres redis
+```
+
+**Back-office Django** (`apps/admin-django/`) : voir son README.
+**API publique FastAPI** (`apps/api-fastapi/`) : voir son README.
+
+Frontend Next.js pas encore commencé (jalon M6).
 
 ## Roadmap
 
