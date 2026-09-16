@@ -6,10 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..database import get_session
-from ..models import Order, Ticket
+from ..models import Event, Order, Ticket
 from ..payments import get_payment_provider
 from ..redis_client import redis
-from ..schemas import OrderCreateIn, OrderCreateOut, OrderTicketsOut, TicketOut
+from ..schemas import OrderCreateIn, OrderCreateOut, OrderTicketsOut, TicketOut, VenueOut
 from ..services.locks import LockAcquisitionError
 from ..services.orders import (
     EventNotFound,
@@ -82,7 +82,7 @@ async def get_order_tickets(
         select(Order)
         .where(Order.transaction_id == transaction_id)
         .options(
-            selectinload(Order.event),
+            selectinload(Order.event).selectinload(Event.venue),
             selectinload(Order.tickets).selectinload(Ticket.ticket_type),
             selectinload(Order.tickets).selectinload(Ticket.seat),
         )
@@ -114,5 +114,7 @@ async def get_order_tickets(
         transaction_id=order.transaction_id,
         status=order.status,
         event_title=order.event.title,
+        event_starts_at=order.event.starts_at,
+        venue=VenueOut(name=order.event.venue.name, city=order.event.venue.city),
         tickets=tickets,
     )

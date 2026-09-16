@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckCircle2, Clock, Smartphone, XCircle } from "lucide-react";
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { ApiError, getOrderTickets, simulatePayment, type OrderTicketsOut } from "@/lib/api";
@@ -67,56 +68,83 @@ export default function OrderStatusPage({
   if (order) {
     return (
       <div className="space-y-6">
-        <p className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          Paiement confirmé — voici vos billets. Vous pouvez aussi les retrouver plus tard
-          depuis « Mes billets » avec votre numéro de commande et votre e-mail.
-        </p>
+        <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-5 py-4">
+          <CheckCircle2 className="h-6 w-6 shrink-0 text-green-600" />
+          <p className="text-sm text-green-800">
+            <span className="font-semibold">Paiement confirmé</span> — voici vos billets. Vous
+            pouvez aussi les retrouver plus tard depuis « Mes billets » avec votre numéro de
+            commande et votre e-mail.
+          </p>
+        </div>
         <TicketList order={order} />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-md space-y-6 text-center">
-      <h1 className="text-xl font-bold text-slate-900">Commande {transactionId}</h1>
+    <div className="mx-auto max-w-lg space-y-6">
+      <div className="text-center">
+        <h1 className="text-xl font-bold text-slate-900">Commande</h1>
+        <p className="mt-1 font-mono text-sm text-slate-500">{transactionId}</p>
+      </div>
 
-      {checking && <p className="text-slate-600">Vérification du statut de paiement...</p>}
+      {checking && (
+        <div className="flex items-center justify-center gap-2 py-6 text-slate-600">
+          <Clock className="h-5 w-5 animate-pulse text-indigo-500" />
+          Vérification du statut de paiement...
+        </div>
+      )}
 
-      {error && <p className="text-sm text-red-700">{error}</p>}
+      {error && (
+        <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </p>
+      )}
 
       {failed && (
-        <div className="space-y-3 rounded-md border border-red-200 bg-red-50 p-5">
-          <p className="text-sm text-red-800">Paiement refusé (simulation).</p>
-          <Link href="/" className="text-sm font-medium text-indigo-700 underline">
+        <div className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+          <XCircle className="mx-auto h-8 w-8 text-red-600" />
+          <p className="font-medium text-red-800">Paiement refusé (simulation)</p>
+          <Link
+            href="/"
+            className="inline-block text-sm font-medium text-indigo-700 underline underline-offset-2"
+          >
             Retour au catalogue
           </Link>
         </div>
       )}
 
       {!checking && !order && !failed && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-left">
-          <p className="text-sm text-slate-700">
-            En attente de confirmation du paiement Mobile Money.
-          </p>
-          <p className="mt-2 text-sm font-medium text-amber-800">
-            Démo portfolio — aucun identifiant Mobile Money réel n&apos;est configuré ici.
-            Simulez l&apos;issue du paiement :
-          </p>
-          <div className="mt-3 flex gap-3">
-            <button
-              onClick={() => handleSimulate("success")}
-              disabled={simulating}
-              className="rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-500 disabled:opacity-60"
-            >
-              Simuler un paiement réussi
-            </button>
-            <button
-              onClick={() => handleSimulate("failed")}
-              disabled={simulating}
-              className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-60"
-            >
-              Simuler un échec
-            </button>
+        <div className="overflow-hidden rounded-xl border border-indigo-200 shadow-sm">
+          <div className="flex items-center gap-3 bg-indigo-50 px-5 py-4">
+            <Smartphone className="h-6 w-6 shrink-0 text-indigo-600" />
+            <p className="text-sm text-indigo-900">
+              En attente de confirmation du paiement <strong>Mobile Money</strong>.
+            </p>
+          </div>
+          <div className="space-y-3 bg-white px-5 py-4">
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+              Démo portfolio — aucun identifiant Mobile Money réel n&apos;est configuré ici.
+              Simulez vous-même l&apos;issue du paiement ci-dessous :
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleSimulate("success")}
+                disabled={simulating}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-green-600 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-green-500 disabled:opacity-60"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Paiement réussi
+              </button>
+              <button
+                onClick={() => handleSimulate("failed")}
+                disabled={simulating}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-red-300 px-3 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+              >
+                <XCircle className="h-4 w-4" />
+                Échec
+              </button>
+            </div>
           </div>
         </div>
       )}

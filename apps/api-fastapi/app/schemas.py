@@ -66,6 +66,8 @@ class OrderTicketsOut(BaseModel):
     transaction_id: str
     status: str
     event_title: str
+    event_starts_at: datetime
+    venue: VenueOut
     tickets: list[TicketOut]
 
 

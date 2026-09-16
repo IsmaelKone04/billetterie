@@ -81,6 +81,8 @@ export type OrderTicketsOut = {
   transaction_id: string;
   status: string;
   event_title: string;
+  event_starts_at: string;
+  venue: Venue;
   tickets: TicketOut[];
 };
 

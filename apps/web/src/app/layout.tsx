@@ -27,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col bg-slate-50 text-slate-900">
         <NavBar />
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">{children}</main>
         <footer className="border-t border-slate-200 bg-white py-6 text-center text-sm text-slate-500">
           billetterie — démo portfolio, marché ivoirien
         </footer>

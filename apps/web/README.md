@@ -11,8 +11,9 @@ dashboard analytics. Ne parle qu'aux API REST (`api-fastapi` pour tout ;
 - `/evenements/[id]` — détail d'un événement, tarifs, formulaire d'achat.
 - `/commande/[transactionId]` — statut de la commande ; si le provider de
   paiement est `simulator` (pas d'identifiants CinetPay réels), propose de
-  simuler l'issue du paiement (démo portfolio) ; affiche les billets (QR)
-  une fois `billets_emis`.
+  simuler l'issue du paiement (démo portfolio) ; affiche les billets (QR,
+  téléchargeables en PDF via `jspdf` — voir `lib/ticketPdf.ts`) une fois
+  `billets_emis`.
 - `/mes-billets` — retrouver ses billets avec le numéro de commande + e-mail.
 - `/scan` — scan de billets par le personnel (caméra via `getUserMedia` +
   décodage QR côté client avec `jsqr`, ou saisie manuelle du token en
@@ -39,11 +40,17 @@ définie par `NEXT_PUBLIC_API_URL` dans `apps/web/.env.local` (voir
 (`CORS_ALLOWED_ORIGINS`, `http://localhost:3000` par défaut).
 
 Ou via Docker (voir `docker/web.Dockerfile` et le service `web` de
-`docker-compose.yml` à la racine) : `docker compose up --build web`. Deux
+`docker-compose.yml` à la racine) : `docker compose up --build web`. Trois
 variables d'URL distinctes y sont utilisées — voir `src/lib/api.ts` et
-`.env.example` (`NEXT_PUBLIC_API_URL` pour le navigateur,
+`.env.example` : `NEXT_PUBLIC_API_URL` pour le navigateur en dev local hors
+Docker (inlinée au build de `npm run dev`), `WEB_DOCKER_NEXT_PUBLIC_API_URL`
+pour le navigateur quand l'image est construite par `docker-compose.yml`
+(port différent : api-fastapi y cohabite avec admin-django sur un port
+décalé — **une variable dédiée est nécessaire ici**, sans quoi
+docker-compose substitue silencieusement la valeur de `NEXT_PUBLIC_API_URL`
+définie dans `.env`, qui ne convient pas dans ce contexte), et
 `API_INTERNAL_URL` pour les composants serveur qui tournent dans le
-conteneur `web` lui-même).
+conteneur `web` lui-même.
 
 ## Vérification
 

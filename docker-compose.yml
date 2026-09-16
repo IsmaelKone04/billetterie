@@ -116,8 +116,12 @@ services:
       dockerfile: docker/web.Dockerfile
       args:
         # Doit être joignable depuis le navigateur : le port hôte publié par
-        # api-fastapi ci-dessus, pas le nom du service Docker interne.
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8010}
+        # api-fastapi ci-dessus (8010), pas le nom du service Docker interne.
+        # Variable dédiée (pas NEXT_PUBLIC_API_URL) : ce nom est déjà pris
+        # dans .env pour le dev local hors Docker (api-fastapi seul sur
+        # 8000) — les deux valeurs diffèrent et doivent rester distinctes,
+        # sans quoi docker-compose substitue silencieusement celle de .env.
+        NEXT_PUBLIC_API_URL: ${WEB_DOCKER_NEXT_PUBLIC_API_URL:-http://localhost:8010}
     restart: unless-stopped
     depends_on:
       api-fastapi:

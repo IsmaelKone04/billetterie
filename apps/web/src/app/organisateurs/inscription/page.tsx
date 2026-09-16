@@ -1,5 +1,6 @@
 "use client";
 
+import { TicketPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError, organizerSignup } from "@/lib/api";
@@ -35,21 +36,27 @@ export default function OrganizerSignupPage() {
 
   return (
     <div className="mx-auto max-w-md space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Devenir organisateur</h1>
+      <div className="text-center">
+        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-sm">
+          <TicketPlus className="h-6 w-6" />
+        </span>
+        <h1 className="mt-3 text-2xl font-bold text-slate-900">Devenir organisateur</h1>
         <p className="mt-1 text-slate-600">
           Créez et gérez vos propres événements, suivez vos ventes en temps réel.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-slate-200 bg-white p-5">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+      >
         <label className="block text-sm">
           <span className="text-slate-700">Nom affiché</span>
           <input
             required
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </label>
         <label className="block text-sm">
@@ -59,7 +66,7 @@ export default function OrganizerSignupPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </label>
         <label className="block text-sm">
@@ -70,7 +77,7 @@ export default function OrganizerSignupPage() {
             minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
           <span className="mt-1 block text-xs text-slate-500">8 caractères minimum.</span>
         </label>
@@ -79,7 +86,7 @@ export default function OrganizerSignupPage() {
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </label>
 
@@ -88,7 +95,7 @@ export default function OrganizerSignupPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-md bg-indigo-600 px-4 py-2.5 font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
+          className="w-full rounded-md bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2.5 font-medium text-white shadow-sm transition hover:brightness-110 disabled:opacity-60"
         >
           {submitting ? "Création..." : "Créer mon compte organisateur"}
         </button>

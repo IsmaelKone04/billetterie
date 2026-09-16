@@ -493,3 +493,71 @@ d'état, sièges numérotés retiré des points ouverts).
 
 **Prochaine étape :** proposition d'intégration au portfolio
 (`c:\Portfolio`) — diff soumis avant tout commit, comme convenu.
+
+## 2026-09-16 — Post-Mn : test utilisateur réel, bug de build Docker trouvé, billet PDF, refonte visuelle
+
+Ismaël a testé la plateforme lui-même après Mn (compte superuser créé :
+`admin` / mot de passe communiqué séparément) et remonté deux problèmes :
+le bouton « simuler le paiement » introuvable, et une interface jugée trop
+plate. Il a aussi demandé si le paiement générait un billet PDF — non,
+jusqu'ici.
+
+**Bug réel trouvé et corrigé — mauvais port API dans le bundle navigateur :**
+Le bouton existait bel et bien dans le DOM (confirmé via Chrome headless
+avec exécution JS réelle), mais la page affichait « Impossible de contacter
+l'API. ». Diagnostic par les logs console de Chrome (`--enable-logging`) :
+`Access to fetch at 'http://localhost:8000/orders/.../tickets...' ... has
+been blocked by CORS policy`. Le navigateur appelait le port **8000**
+(admin-django) au lieu de **8010** (api-fastapi, port décalé pour cohabiter
+avec Django dans Docker Compose). Cause : `docker-compose.yml` construisait
+l'image `web` avec `NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8010}`
+— mais `NEXT_PUBLIC_API_URL` est **aussi** défini dans `.env` (`=http://
+localhost:8000`, pour `npm run dev` hors Docker, où api-fastapi tourne
+seul sur son port par défaut). docker-compose substitue silencieusement la
+valeur de `.env` dès qu'une variable du même nom y existe, écrasant le
+`:-http://localhost:8010` de secours qui ne servait donc jamais. Corrigé
+en renommant la variable utilisée par le build Docker en
+`WEB_DOCKER_NEXT_PUBLIC_API_URL` (distincte, documentée dans `.env.example`),
+pour qu'elle ne puisse plus jamais être masquée par la variable du même nom
+utilisée pour le dev local hors Docker — deux contextes, deux valeurs,
+donc deux noms. Reconstruit et revérifié via Chrome headless avec capture
+des logs console (plus d'erreur CORS, bouton et confirmation de paiement
+bien affichés).
+
+**Leçon** : `curl` ne suffit pas à vérifier une page React côté client —
+il ne voit que le HTML statique avant hydratation. Le premier essai de
+vérification via Chrome headless (`--dump-dom`) avec `--virtual-time-budget`
+a d'abord semblé donner un résultat instable (échec puis succès selon le
+budget alloué), ce qui a failli faire passer ce vrai bug pour un artefact
+de l'outil de test. Vérifié en répétant avec plusieurs budgets (4 s à 25 s) :
+l'échec était **systématique**, donc réel — et la cause exacte trouvée en
+activant les logs console de Chrome (`--enable-logging=stderr --v=1`), qui
+donnent le message d'erreur CORS exact du navigateur, bien plus parlant que
+deviner à partir du seul DOM final.
+
+**Billet PDF (demandé) :** `jspdf` ajouté ; `lib/ticketPdf.ts` génère côté
+client (comme le QR, jamais côté serveur) un PDF au format « billet »
+paysage avec QR, titre/date/lieu de l'événement, tarif, siège si numéroté,
+numéro de commande. Bouton « Télécharger (PDF) » sur chaque billet
+(`TicketList.tsx`). A nécessité d'exposer `event_starts_at` et `venue` dans
+`GET /orders/{transaction_id}/tickets` côté API (absents jusqu'ici, la
+route ne renvoyait que `event_title`).
+
+**Refonte visuelle de toute l'application** (`lucide-react` ajouté pour les
+icônes) : dégradé indigo/violet en en-tête et boutons principaux, page
+catalogue avec bandeau d'accroche et cartes d'événements illustrées, page
+événement en deux colonnes (infos + formulaire d'achat en volet collant),
+quantités de billets par steppers +/-, page de commande avec états
+visuellement distincts (icônes succès/attente/échec, panneau de simulation
+clairement démarqué de l'erreur), billets présentés en carte façon vrai
+ticket (souche pointillée + QR), scan avec cadre caméra et états
+succès/échec plus lisibles, tableau de bord organisateur avec cartes
+statistiques et barres de remplissage. Testé après coup : `npm run build`
+et `npm run lint` propres, suite `pytest` (23 tests) toujours verte,
+parcours complet rejoué à travers les conteneurs Docker reconstruits.
+
+**Fait aussi :** compte superuser Django `admin` créé/réinitialisé pour
+qu'Ismaël puisse explorer le back-office ; un événement de démonstration
+(« Nuit du Coupé-Décalé », tarif debout + section VIP à sièges numérotés)
+seedé en base pour qu'il ait un vrai parcours à tester sans devoir créer
+ses propres données au préalable.
