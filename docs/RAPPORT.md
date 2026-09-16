@@ -206,6 +206,60 @@ vérification systématique.
   monbail, **pas par un appel réel à l'API CinetPay**. À tester dès que des
   identifiants seront disponibles.
 
-**Prochain jalon (M4) :** billets — génération QR signé (au-delà du
-`qr_secret` brut actuel), page « mes billets », endpoint de scan +
-vérification anti-duplication, écran de scan Next.js.
+## 2026-09-16 — M4 : billets, QR signé, scan anti-duplication
+
+**Construit et vérifié :**
+- `app/services/qr.py` : token QR = HMAC-SHA256 de `(ticket_id, qr_secret)`
+  signé avec `JWT_SECRET`, jamais `qr_secret` en clair — même si le token QR
+  fuite, il ne révèle pas le secret, et sans `JWT_SECRET` il est impossible
+  d'en fabriquer un nouveau pour un autre `ticket_id`. Rien de plus n'est
+  stocké en base : génération et vérification recalculent toujours le HMAC.
+- `GET /orders/{transaction_id}/tickets?email=...` (« mes billets ») : pas de
+  compte acheteur, la connaissance du `transaction_id` (reçu à l'achat) +
+  l'e-mail sert de justificatif — comme un lien de confirmation de commande
+  classique. Renvoie 409 si la commande n'est pas encore `billets_emis`.
+- `POST /scan` : vérifie le token QR (signature + billet appartenant à une
+  commande `billets_emis` + pas déjà annulé), marque le billet `scanne`,
+  refuse tout second scan avec l'heure du premier (409, anti-duplication).
+  Protégé par un en-tête `X-Scan-Key` (clé partagée `SCAN_API_KEY`) — voir
+  point ouvert ci-dessous.
+- `API_DEBUG` (FastAPI) introduit sur le même modèle que `DJANGO_DEBUG` :
+  `JWT_SECRET`/`SCAN_API_KEY` n'ont un secret de dev par défaut que si
+  `API_DEBUG=true` ; sinon un secret manquant fait échouer explicitement les
+  endpoints concernés (503) plutôt que de tourner avec un secret devinable.
+- 5 nouveaux tests d'intégration (« mes billets » avec e-mail correct/incorrect,
+  commande pas encore émise, scan accepté puis refusé en double, mauvaise clé
+  de scan, token falsifié) contre le vrai Postgres/Redis — 16 tests au total,
+  tous verts. Vérification manuelle de bout en bout avec un **vrai serveur
+  `uvicorn`** et de **vrais appels HTTP** (achat → paiement simulé → « mes
+  billets » → scan deux fois → mauvaise clé → token falsifié), chaque cas
+  observé avec le bon code HTTP. Données de test nettoyées après coup,
+  vérifié par comptage (0 ligne restante sur les 7 tables concernées).
+
+**Décisions techniques :**
+- Portée volontairement limitée au **backend** : `apps/web/` (Next.js) n'a
+  pas encore démarré (prévu au jalon M6). La « page mes billets » et
+  l'« écran de scan » du plan initial sont donc, à ce stade, des **endpoints
+  API** (`GET .../tickets`, `POST /scan`) exploitables par n'importe quel
+  client HTTP — les pages Next.js elles-mêmes (affichage du QR, caméra via
+  `getUserMedia`) sont reportées à M6, pour éviter de construire un
+  frontend partiel maintenant puis de le refaire à M6. Signalé plutôt que
+  fait à moitié.
+- Le scan est protégé par une **clé partagée** (`SCAN_API_KEY`, en-tête
+  `X-Scan-Key`), pas par un compte staff individuel — `Ticket.scanned_by`
+  reste `NULL` dans tous les cas. Un vrai système d'authentification staff
+  (identifier *qui* a scanné) demanderait de connecter l'API FastAPI aux
+  utilisateurs Django (`auth_user`), ce qui est hors du périmètre initial de
+  ce jalon — **point ouvert**, signalé plutôt qu'ignoré.
+- Le token QR encode le HMAC de `(ticket_id, qr_secret)` plutôt que
+  `qr_secret` seul : ça permet un lookup direct par `ticket_id` (clé
+  primaire indexée) côté scan, sans dépendre uniquement de l'index unique
+  sur `qr_secret`, et ça garde `qr_secret` hors du QR lui-même (défense en
+  profondeur si le token QR fuite par un autre canal que le scan prévu).
+- Pas de génération d'image QR côté backend (aucune dépendance ajoutée) : le
+  backend ne produit que le *token* signé ; l'encodage en image QR revient
+  au frontend (Next.js, M6), qui a la bibliothèque JS adaptée et un endroit
+  où l'afficher.
+
+**Prochain jalon (M5) :** marketplace multi-organisateurs — inscription
+organisateur, dashboard analytics (ventes, remplissage, revenus).

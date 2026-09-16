@@ -1,13 +1,18 @@
 from domain.order_state_machine import OrderStatus, verifier_transition
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import EmailStr
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from ..database import get_session
+from ..models import Order, Ticket
 from ..payments import get_payment_provider
 from ..redis_client import redis
-from ..schemas import OrderCreateIn, OrderCreateOut
+from ..schemas import OrderCreateIn, OrderCreateOut, OrderTicketsOut, TicketOut
 from ..services.locks import LockAcquisitionError
 from ..services.orders import EventNotFound, InvalidTicketType, QuotaExceeded, create_order
+from ..services.qr import QrConfigError, build_qr_token
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -55,4 +60,49 @@ async def create_order_endpoint(
         status=order.status,
         amount_total=order.amount_total,
         payment_url=initiation.payment_url,
+    )
+
+
+@router.get("/{transaction_id}/tickets", response_model=OrderTicketsOut)
+async def get_order_tickets(
+    transaction_id: str, email: EmailStr, session: AsyncSession = Depends(get_session)
+):
+    """« Mes billets » : pas de compte acheteur, la connaissance du
+    transaction_id (reçu à l'achat) + l'e-mail utilisé sert de justificatif
+    — suffisant pour un MVP, comme un lien de confirmation de commande."""
+    result = await session.execute(
+        select(Order)
+        .where(Order.transaction_id == transaction_id)
+        .options(
+            selectinload(Order.event),
+            selectinload(Order.tickets).selectinload(Ticket.ticket_type),
+        )
+    )
+    order = result.scalar_one_or_none()
+    if order is None or order.buyer_email.lower() != email.lower():
+        raise HTTPException(status_code=404, detail="Commande introuvable")
+
+    if order.status != OrderStatus.BILLETS_EMIS.value:
+        raise HTTPException(
+            status_code=409, detail=f"Billets pas encore émis (statut actuel : {order.status})"
+        )
+
+    try:
+        tickets = [
+            TicketOut(
+                id=ticket.id,
+                ticket_type_name=ticket.ticket_type.name,
+                status=ticket.status,
+                qr_token=build_qr_token(ticket.id, ticket.qr_secret),
+            )
+            for ticket in order.tickets
+        ]
+    except QrConfigError as exc:
+        raise HTTPException(status_code=503, detail="Génération des billets non configurée") from exc
+
+    return OrderTicketsOut(
+        transaction_id=order.transaction_id,
+        status=order.status,
+        event_title=order.event.title,
+        tickets=tickets,
     )

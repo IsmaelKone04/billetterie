@@ -52,7 +52,7 @@ class Event(Base):
     organizer: Mapped["Organizer"] = relationship()
     venue: Mapped["Venue"] = relationship()
     ticket_types: Mapped[list["TicketType"]] = relationship(
-        order_by="TicketType.price"
+        order_by="TicketType.price", back_populates="event"
     )
 
 
@@ -67,6 +67,8 @@ class TicketType(Base):
     quota: Mapped[int]
     sales_start: Mapped[datetime | None]
     sales_end: Mapped[datetime | None]
+
+    event: Mapped["Event"] = relationship(back_populates="ticket_types")
 
 
 class Order(Base):
@@ -83,6 +85,7 @@ class Order(Base):
     created_at: Mapped[datetime]
     updated_at: Mapped[datetime]
 
+    event: Mapped["Event"] = relationship()
     tickets: Mapped[list["Ticket"]] = relationship(back_populates="order")
 
 

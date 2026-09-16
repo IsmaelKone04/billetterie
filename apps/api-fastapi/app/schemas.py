@@ -52,3 +52,28 @@ class OrderCreateOut(BaseModel):
 class SimulatePaymentIn(BaseModel):
     transaction_id: str
     outcome: str = Field(pattern="^(success|failed)$")
+
+
+class TicketOut(BaseModel):
+    id: int
+    ticket_type_name: str
+    status: str
+    qr_token: str
+
+
+class OrderTicketsOut(BaseModel):
+    transaction_id: str
+    status: str
+    event_title: str
+    tickets: list[TicketOut]
+
+
+class ScanIn(BaseModel):
+    qr_token: str
+
+
+class ScanOut(BaseModel):
+    ticket_id: int
+    ticket_type_name: str
+    event_title: str
+    scanned_at: datetime

@@ -4,7 +4,7 @@ API publique FastAPI : catalogue, panier, achat, webhook paiement, scan de
 billet. Lit/écrit la base Postgres gérée par `admin-django` (Django reste
 seul propriétaire du schéma et des migrations).
 
-**État : M3 — achat et paiement Mobile Money.**
+**État : M4 — achat, paiement Mobile Money, billets (QR signé + scan).**
 
 - `GET /events` — liste des événements publiés (statut `publie`), triés par
   date de début.
@@ -13,6 +13,9 @@ seul propriétaire du schéma et des migrations).
 - `POST /orders` — crée une commande (panier de tarifs), verrouille et
   réserve les billets (anti-survente via Redis + comptage en base), puis
   initie le paiement auprès du provider actif (`PAYMENT_PROVIDER`).
+- `GET /orders/{transaction_id}/tickets?email=...` — « mes billets » :
+  liste les billets d'une commande `billets_emis` (justificatif :
+  `transaction_id` + e-mail acheteur), chacun avec un token QR signé.
 - `POST /payments/webhook/{provider}` — webhook de paiement (`cinetpay` ou
   `simulator`) : vérifie la signature, appelle `check()` si le provider
   l'exige, déduplique, émet les billets (`Order.status → billets_emis`) ou
@@ -20,12 +23,16 @@ seul propriétaire du schéma et des migrations).
 - `POST /payments/simulate` — dev/tests uniquement (`PAYMENT_PROVIDER=simulator`) :
   déclenche un webhook auto-signé pour une commande donnée, sans dépendre
   d'un vrai opérateur Mobile Money.
+- `POST /scan` — scan d'un billet à l'entrée (en-tête `X-Scan-Key`) : vérifie
+  le token QR signé, marque le billet scanné, refuse tout second scan avec
+  l'heure du premier.
 - `GET /health` — vérification de vie (pour le futur healthcheck Docker).
 
-Voir `docs/RAPPORT.md` (entrée M3) pour le détail des providers de paiement,
-de la machine à états de la commande (`packages/domain`) et des points
-ouverts (pas d'assignation de sièges numérotés, pas de timeout automatique
-des commandes en attente de paiement).
+Voir `docs/RAPPORT.md` (entrées M3/M4) pour le détail des providers de
+paiement, de la machine à états de la commande (`packages/domain`), du token
+QR signé, et des points ouverts (pas d'assignation de sièges numérotés, pas
+de timeout automatique des commandes en attente de paiement, scan protégé
+par une clé partagée plutôt qu'un compte staff individuel).
 
 ## Lancer en local
 
@@ -52,6 +59,5 @@ Tests d'intégration contre le vrai Postgres et le vrai Redis partagés avec
 `admin-django` : insèrent des données de test en SQL brut puis les
 suppriment après chaque test (voir `tests/conftest.py`).
 
-**Pas encore fait :** génération de QR signé (au-delà du `qr_secret` brut),
-page « mes billets », endpoint de scan, assignation de sièges numérotés —
-jalon M4.
+**Pas encore fait :** assignation de sièges numérotés, marketplace
+multi-organisateurs, dashboard analytics — voir `docs/RAPPORT.md`.

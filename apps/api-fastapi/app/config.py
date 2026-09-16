@@ -31,6 +31,27 @@ def _redis_url() -> str:
 DATABASE_URL = _database_url()
 REDIS_URL = _redis_url()
 
+# Même logique que DJANGO_DEBUG côté admin-django : autorise un secret de
+# dev par défaut uniquement quand API_DEBUG=true, sinon un secret manquant
+# reste vide (les endpoints qui en dépendent refusent alors explicitement,
+# plutôt que de tourner avec un secret devinable en production).
+API_DEBUG = os.environ.get("API_DEBUG", "false").lower() == "true"
+
+
+def _secret(name: str, dev_fallback: str) -> str:
+    value = os.environ.get(name, "")
+    if value:
+        return value
+    return dev_fallback if API_DEBUG else ""
+
+
+# Signe/vérifie le token QR des billets (voir app/services/qr.py).
+JWT_SECRET = _secret("JWT_SECRET", "insecure-dev-only-jwt-secret-do-not-use-in-production")
+# Clé partagée exigée dans l'en-tête X-Scan-Key de POST /scan — protège
+# l'endpoint qui invalide les billets. Pas de compte staff dédié pour
+# l'instant (voir docs/RAPPORT.md, ouvert au jalon M4).
+SCAN_API_KEY = _secret("SCAN_API_KEY", "insecure-dev-only-scan-key-do-not-use-in-production")
+
 # --- Paiement Mobile Money ---
 PAYMENT_PROVIDER = os.environ.get("PAYMENT_PROVIDER", "simulator")
 CINETPAY_API_KEY = os.environ.get("CINETPAY_API_KEY", "")
