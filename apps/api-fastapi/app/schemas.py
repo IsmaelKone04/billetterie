@@ -77,3 +77,46 @@ class ScanOut(BaseModel):
     ticket_type_name: str
     event_title: str
     scanned_at: datetime
+
+
+class OrganizerSignupIn(BaseModel):
+    display_name: str = Field(min_length=1, max_length=150)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    phone: str = ""
+    mobile_money_account: str = ""
+
+
+class OrganizerLoginIn(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class OrganizerAuthOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class OrganizerMeOut(BaseModel):
+    id: int
+    display_name: str
+    email: str
+
+
+class EventAnalyticsOut(BaseModel):
+    event_id: int
+    title: str
+    status: str
+    tickets_sold: int
+    quota_total: int
+    fill_rate: float
+    revenue: Decimal
+
+
+class OrganizerDashboardOut(BaseModel):
+    organizer_id: int
+    display_name: str
+    total_events: int
+    total_tickets_sold: int
+    total_revenue: Decimal
+    events: list[EventAnalyticsOut]

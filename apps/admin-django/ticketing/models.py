@@ -8,15 +8,25 @@ from domain.order_state_machine import ORDER_STATUS_LABELS, OrderStatus
 
 class Organizer(models.Model):
     """Compte organisateur — un utilisateur peut créer/gérer des événements
-    (marketplace multi-organisateurs)."""
+    (marketplace multi-organisateurs). Inscription en libre-service côté
+    api-fastapi (email + mot de passe propres à Organizer, JWT signé —
+    voir app/services/auth.py) : ce n'est PAS un compte staff Django, donc
+    `user` reste optionnel (lien manuel possible si un organisateur a aussi
+    besoin d'un accès à l'admin Django)."""
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="organizer_profile",
         verbose_name="utilisateur",
+        null=True,
+        blank=True,
     )
     display_name = models.CharField("nom affiché", max_length=150)
+    email = models.EmailField("e-mail", unique=True)
+    password_hash = models.CharField(
+        "mot de passe (haché)", max_length=128, editable=False
+    )
     phone = models.CharField("téléphone", max_length=30, blank=True)
     mobile_money_account = models.CharField(
         "compte Mobile Money (reversement)", max_length=50, blank=True

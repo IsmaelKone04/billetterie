@@ -27,6 +27,11 @@ class Organizer(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     display_name: Mapped[str]
+    email: Mapped[str]
+    password_hash: Mapped[str]
+    phone: Mapped[str]
+    mobile_money_account: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
 
 
 class Venue(Base):

@@ -4,14 +4,15 @@ Billetterie d'événements moderne pour le marché ivoirien — places numérot�
 scan de billets en temps réel, marketplace multi-organisateurs, analytics,
 paiement Mobile Money (CinetPay : Orange Money / MTN / Moov / Wave).
 
-> **État actuel : M4.** Back-office Django avec modèles noyau (organisateurs,
+> **État actuel : M5.** Back-office Django avec modèles noyau (organisateurs,
 > lieux, plan de salle, événements, tarifs, commandes, billets) et API
 > FastAPI avec catalogue public + achat + paiement Mobile Money (CinetPay +
 > provider `simulator`) + billets (QR signé, page « mes billets », scan
-> anti-duplication). Pas encore de marketplace multi-organisateurs, de
-> dashboard analytics, ni de frontend (les pages « mes billets »/scan
-> existent comme endpoints API, pas encore comme pages Next.js — prévu au
-> jalon M6). Ce README est mis à jour à chaque jalon (voir `docs/RAPPORT.md`).
+> anti-duplication) + marketplace multi-organisateurs (inscription/connexion
+> par JWT, dashboard analytics : ventes, remplissage, revenus par événement).
+> Pas encore de frontend (les pages « mes billets »/scan/dashboard existent
+> comme endpoints API, pas encore comme pages Next.js — prévu au jalon M6).
+> Ce README est mis à jour à chaque jalon (voir `docs/RAPPORT.md`).
 
 ## Stack
 

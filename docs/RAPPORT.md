@@ -263,3 +263,60 @@ vérification systématique.
 
 **Prochain jalon (M5) :** marketplace multi-organisateurs — inscription
 organisateur, dashboard analytics (ventes, remplissage, revenus).
+
+## 2026-09-16 — M5 : marketplace multi-organisateurs, dashboard analytics
+
+**Construit et vérifié :**
+- Schéma `Organizer` (Django, migration `0003_organizer_selfservice_auth`) :
+  ajout de `email` (unique) et `password_hash`, `user` (compte staff Django)
+  devient **optionnel** — un organisateur auto-inscrit n'a pas forcément de
+  compte Django, ce n'est pas le même système d'authentification.
+- `app/services/auth.py` : hachage de mot de passe en PBKDF2-HMAC-SHA256
+  (200 000 itérations, sel aléatoire, stdlib uniquement — aucune dépendance
+  ajoutée pour ça) et JWT de session (`pyjwt`, `ORGANIZER_JWT_SECRET` —
+  secret **distinct** de `JWT_SECRET` des billets, valable 12h).
+- `app/services/analytics.py` : agrégations par événement (billets vendus,
+  quota total, revenu) à partir de `Order`/`Ticket`/`TicketType`, un billet
+  comptant comme vendu s'il appartient à une commande `billets_emis` et n'est
+  pas annulé (même exclusion que le scan). Taux de remplissage protégé
+  contre la division par zéro (événement sans aucun tarif → `0.0`).
+- Nouveaux endpoints : `POST /organizers/signup`, `POST /organizers/login`,
+  `GET /organizers/me`, `GET /organizers/me/dashboard` (protégés par
+  `Authorization: Bearer <jwt>` sauf signup/login).
+- 5 nouveaux tests d'intégration (inscription puis profil, e-mail déjà
+  utilisé → 409, mot de passe incorrect → 401, accès sans token → 401,
+  dashboard reflétant une vraie vente simulée avec le bon revenu/taux de
+  remplissage) — 21 tests au total, tous verts.
+- Vérification manuelle avec un **vrai serveur `uvicorn`** et de **vrais
+  appels HTTP** : inscription → doublon rejeté (409) → mauvais mot de passe
+  rejeté (401) → connexion correcte → `/me` sans/avec token → dashboard vide
+  → achat + paiement simulé de 3 billets → dashboard reflétant exactement 3
+  billets vendus, 9000 FCFA de revenu, 6 % de remplissage (3/50). Données de
+  test (organisateur, lieu, événement, tarif, commande, billets) nettoyées
+  après coup, vérifié par comptage (0 ligne restante).
+
+**Décisions techniques :**
+- **JWT via FastAPI plutôt que sessions Django**, tranché avec Ismaël avant
+  de coder : un frontend Next.js découplé (M6) qui appelle déjà FastAPI pour
+  tout le reste (catalogue, achat, scan) n'a besoin que d'un seul client HTTP
+  et d'un en-tête `Authorization`, sans gérer de cookies cross-origin vers
+  Django. L'inscription/connexion et le dashboard analytics vivent donc
+  entièrement côté `api-fastapi`, pas dans `admin-django`.
+- Secret de signature JWT **distinct** entre billets (`JWT_SECRET`) et
+  session organisateur (`ORGANIZER_JWT_SECRET`) : deux usages de signature
+  différents ne doivent jamais partager la même clé, même si un compromis
+  serait de gravité différente dans les deux cas.
+- Mot de passe haché en PBKDF2 stdlib plutôt qu'une dépendance externe
+  (bcrypt/passlib) : suffisant pour ce volume, cohérent avec le style déjà
+  utilisé pour le HMAC des tokens QR (pas de dépendance ajoutée sans besoin).
+- **Pas de limitation de débit sur `/organizers/login`** (brute force) —
+  **point ouvert**, signalé plutôt qu'ignoré ; à traiter si le projet va vers
+  une vraie mise en production (ex. limitation par IP/e-mail via Redis, déjà
+  présent dans la stack pour le verrouillage anti-survente).
+- Le dashboard reste un **endpoint JSON**, pas une page Next.js — même
+  logique de portée que M4 : `apps/web/` n'a pas démarré, la page dashboard
+  elle-même est reportée à M6.
+
+**Prochain jalon (M6) :** frontend Next.js complet (catalogue, achat, « mes
+billets », écran de scan caméra, inscription/connexion organisateur,
+dashboard analytics) branché sur les API Django/FastAPI existantes.

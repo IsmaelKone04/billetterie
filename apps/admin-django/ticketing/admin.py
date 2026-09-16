@@ -15,8 +15,13 @@ from .models import (
 
 @admin.register(Organizer)
 class OrganizerAdmin(admin.ModelAdmin):
-    list_display = ("display_name", "user", "phone", "created_at")
-    search_fields = ("display_name", "user__username", "phone")
+    """Le mot de passe est haché côté api-fastapi (inscription en
+    libre-service) — jamais modifiable depuis l'admin, juste visible pour
+    confirmer qu'il est bien renseigné."""
+
+    list_display = ("display_name", "email", "user", "phone", "created_at")
+    search_fields = ("display_name", "email", "user__username", "phone")
+    readonly_fields = ("password_hash", "created_at")
 
 
 @admin.register(Venue)

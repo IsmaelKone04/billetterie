@@ -51,6 +51,12 @@ JWT_SECRET = _secret("JWT_SECRET", "insecure-dev-only-jwt-secret-do-not-use-in-p
 # l'endpoint qui invalide les billets. Pas de compte staff dédié pour
 # l'instant (voir docs/RAPPORT.md, ouvert au jalon M4).
 SCAN_API_KEY = _secret("SCAN_API_KEY", "insecure-dev-only-scan-key-do-not-use-in-production")
+# Signe le JWT de session organisateur (voir app/services/auth.py) — secret
+# distinct de JWT_SECRET pour ne jamais partager la même clé entre deux
+# usages de signature différents (token QR billet vs session organisateur).
+ORGANIZER_JWT_SECRET = _secret(
+    "ORGANIZER_JWT_SECRET", "insecure-dev-only-organizer-jwt-secret-do-not-use-in-production"
+)
 
 # --- Paiement Mobile Money ---
 PAYMENT_PROVIDER = os.environ.get("PAYMENT_PROVIDER", "simulator")

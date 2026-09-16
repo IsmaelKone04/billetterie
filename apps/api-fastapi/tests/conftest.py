@@ -50,10 +50,16 @@ async def catalogue():
             await conn.execute(
                 text(
                     "INSERT INTO ticketing_organizer "
-                    "(display_name, phone, mobile_money_account, created_at, user_id) "
-                    "VALUES (:name, '', '', :now, :user_id) RETURNING id"
+                    "(display_name, email, password_hash, phone, mobile_money_account, "
+                    "created_at, user_id) "
+                    "VALUES (:name, :email, '', '', '', :now, :user_id) RETURNING id"
                 ),
-                {"name": f"Organisateur {suffix}", "now": now, "user_id": user_id},
+                {
+                    "name": f"Organisateur {suffix}",
+                    "email": f"organisateur-{suffix}@example.com",
+                    "now": now,
+                    "user_id": user_id,
+                },
             )
         ).scalar_one()
 
@@ -130,6 +136,7 @@ async def catalogue():
         ).scalar_one()
 
     yield {
+        "organizer_id": organizer_id,
         "published_id": published_id,
         "draft_id": draft_id,
         "standard_ticket_type_id": standard_tt_id,
