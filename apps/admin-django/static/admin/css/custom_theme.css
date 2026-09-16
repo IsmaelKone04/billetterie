@@ -1,0 +1,431 @@
+/*
+ * Thème visuel « billetterie » pour l'admin Django — palette neutre +
+ * indigo, cartes arrondies, ombres douces (dans l'esprit shadcn/ui, qui
+ * est un design system React/Tailwind ; ici on obtient le même rendu en
+ * surchargeant les variables CSS et quelques règles du thème par défaut
+ * de Django, chargé juste avant ce fichier).
+ */
+
+/* ---------- Variables (mode clair) ---------- */
+html[data-theme="light"],
+:root {
+    --primary: #4f46e5; /* indigo-600 */
+    --secondary: #4338ca; /* indigo-700 */
+    --accent: #4f46e5;
+    --primary-fg: #ffffff;
+
+    --body-fg: #0f172a; /* slate-900 */
+    --body-bg: #f1f5f9; /* slate-100 — un peu plus contrasté que le blanc des cartes */
+    --body-quiet-color: #64748b; /* slate-500 */
+    --body-medium-color: #334155; /* slate-700 */
+    --body-loud-color: #0f172a;
+
+    --header-color: #0f172a;
+    --header-branding-color: #ffffff;
+    --header-bg: #ffffff;
+    --header-link-color: #0f172a;
+
+    --breadcrumbs-fg: #64748b;
+    --breadcrumbs-link-fg: #475569;
+    --breadcrumbs-bg: transparent;
+
+    --link-fg: #4f46e5;
+    --link-hover-color: #4338ca;
+    --link-selected-fg: #4f46e5;
+
+    --hairline-color: #e2e8f0; /* slate-200 */
+    --border-color: #e2e8f0;
+
+    --error-fg: #dc2626;
+
+    --message-success-bg: #dcfce7;
+    --message-warning-bg: #fef9c3;
+    --message-error-bg: #fee2e2;
+
+    --darkened-bg: #f1f5f9; /* slate-100 */
+    --selected-bg: #eef2ff; /* indigo-50 */
+    --selected-row: #eef2ff;
+
+    --button-fg: #ffffff;
+    --button-bg: #4f46e5;
+    --button-hover-bg: #4338ca;
+    --default-button-bg: #4f46e5;
+    --default-button-hover-bg: #4338ca;
+    --close-button-bg: #64748b;
+    --close-button-hover-bg: #475569;
+    --delete-button-bg: #dc2626;
+    --delete-button-hover-bg: #b91c1c;
+
+    --object-tools-fg: var(--button-fg);
+    --object-tools-bg: #4f46e5;
+    --object-tools-hover-bg: #4338ca;
+
+    --font-family-primary:
+        ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ---------- Variables (mode sombre — cohérent avec le sélecteur clair/sombre natif) ---------- */
+html[data-theme="dark"] {
+    --primary: #6366f1; /* indigo-500 */
+    --secondary: #818cf8;
+    --primary-fg: #ffffff;
+
+    --body-fg: #e2e8f0;
+    --body-bg: #0f172a; /* slate-900 */
+    --body-quiet-color: #94a3b8;
+    --body-medium-color: #cbd5e1;
+    --body-loud-color: #f8fafc;
+
+    --header-color: #f8fafc;
+    --header-bg: #111827;
+    --header-link-color: #f8fafc;
+
+    --breadcrumbs-fg: #94a3b8;
+    --breadcrumbs-link-fg: #cbd5e1;
+    --breadcrumbs-bg: transparent;
+
+    --link-fg: #818cf8;
+    --link-hover-color: #a5b4fc;
+    --link-selected-fg: #818cf8;
+
+    --hairline-color: #1e293b;
+    --border-color: #334155;
+
+    --darkened-bg: #1e293b;
+    --selected-bg: #1e1b4b;
+    --selected-row: #1e1b4b;
+
+    --button-bg: #6366f1;
+    --button-hover-bg: #818cf8;
+    --default-button-bg: #6366f1;
+    --default-button-hover-bg: #818cf8;
+    --close-button-bg: #475569;
+    --close-button-hover-bg: #64748b;
+}
+
+/* ---------- Base ---------- */
+body {
+    font-size: 0.8125rem;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- En-tête ---------- */
+#header {
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.9rem 2rem;
+    box-shadow: none;
+}
+
+#branding h1,
+#branding h1 a:link,
+#branding h1 a:visited {
+    color: var(--header-color);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+#site-name a::before {
+    content: "🎟️";
+    margin-right: 0.4rem;
+}
+
+#header a:link,
+#header a:visited {
+    color: var(--body-medium-color);
+}
+
+#header a:focus,
+#header a:hover {
+    color: var(--primary);
+}
+
+#user-tools {
+    font-weight: 400;
+}
+
+/* ---------- Fil d'Ariane ---------- */
+div.breadcrumbs {
+    background: transparent;
+    padding: 0.9rem 2rem 0;
+    font-size: 0.75rem;
+    color: var(--breadcrumbs-fg);
+    border: none;
+}
+
+div.breadcrumbs a {
+    color: var(--breadcrumbs-link-fg);
+    font-weight: 500;
+}
+
+/* ---------- Barre latérale ---------- */
+#nav-sidebar {
+    background: var(--body-bg);
+    border-right: 1px solid var(--border-color);
+}
+
+#nav-sidebar .module {
+    box-shadow: none;
+    border: none;
+    background: transparent;
+    margin-bottom: 0.25rem;
+}
+
+#nav-sidebar .module th,
+#nav-sidebar .module caption {
+    background: transparent;
+    color: var(--body-quiet-color);
+    font-weight: 600;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 1rem 1rem 0.35rem;
+}
+
+#nav-sidebar .module td {
+    border: none;
+}
+
+#nav-sidebar table {
+    width: 100%;
+}
+
+#nav-sidebar .current-model,
+#nav-sidebar table tr:hover {
+    background: var(--selected-bg);
+    border-radius: 0.5rem;
+}
+
+#nav-sidebar table tr th a,
+#nav-sidebar table tr td a {
+    padding: 0.45rem 1rem;
+    border-radius: 0.5rem;
+    display: block;
+}
+
+#nav-filter {
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+    margin: 0.75rem 1rem;
+    width: calc(100% - 2rem);
+}
+
+/* ---------- Cartes / modules ---------- */
+.module,
+fieldset.module {
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+}
+
+html[data-theme="dark"] .module,
+html[data-theme="dark"] fieldset.module {
+    background: #1e293b;
+}
+
+.module h2,
+.module caption,
+.inline-group h2,
+fieldset.module h2 {
+    background: var(--darkened-bg);
+    color: var(--body-medium-color);
+    font-weight: 600;
+    padding: 0.75rem 1.1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.dashboard .module table td a {
+    padding: 0.2rem 0;
+}
+
+.dashboard .module ul.actionlist,
+#content-related .module {
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+/* ---------- Boutons ---------- */
+.button,
+input[type="submit"],
+input[type="button"],
+.submit-row input,
+a.button {
+    border-radius: 0.5rem;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    box-shadow: none;
+}
+
+.object-tools a.button,
+.object-tools a {
+    border-radius: 0.5rem;
+}
+
+.submit-row {
+    border-top: 1px solid var(--border-color);
+    background: var(--darkened-bg);
+    border-radius: 0 0 0.75rem 0.75rem;
+}
+
+/* ---------- Formulaires ---------- */
+.form-row input[type="text"],
+.form-row input[type="password"],
+.form-row input[type="email"],
+.form-row input[type="url"],
+.form-row input[type="number"],
+.form-row input[type="tel"],
+.form-row textarea,
+.form-row select,
+select,
+textarea,
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="url"],
+input[type="number"] {
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.4rem 0.65rem;
+}
+
+.form-row input:focus,
+.form-row textarea:focus,
+.form-row select:focus,
+select:focus,
+textarea:focus,
+input:focus {
+    border-color: var(--primary);
+    outline: 2px solid rgba(79, 70, 229, 0.15);
+    outline-offset: 0;
+}
+
+/* ---------- Listes (changelist) ---------- */
+#changelist {
+    background: transparent;
+}
+
+#changelist table,
+#changelist-form .results {
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+#changelist table thead th {
+    background: var(--darkened-bg);
+    font-weight: 600;
+    color: var(--body-medium-color);
+}
+
+#changelist table tbody tr:hover {
+    background: var(--selected-bg);
+}
+
+#toolbar {
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+html[data-theme="dark"] #toolbar {
+    background: #1e293b;
+}
+
+#toolbar #searchbar {
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+}
+
+/* !important : changelists.css (chargé après ce fichier, via
+   {{ block.super }} dans change_list.html) redéfinit ce même sélecteur
+   avec la même spécificité — sans ça, sa règle gagnerait sur la nôtre. */
+#toolbar form input[type="submit"] {
+    background: var(--primary) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0.5rem;
+    font-weight: 500;
+}
+
+#toolbar form input[type="submit"]:hover,
+#toolbar form input[type="submit"]:focus {
+    background: var(--secondary) !important;
+    border-color: transparent !important;
+}
+
+#changelist-filter {
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+html[data-theme="dark"] #changelist-filter {
+    background: #1e293b;
+}
+
+#changelist-filter h2 {
+    background: var(--darkened-bg);
+    color: var(--body-medium-color);
+    border-radius: 0.75rem 0.75rem 0 0;
+}
+
+.paginator {
+    border: none !important;
+}
+
+/* ---------- Messages ---------- */
+ul.messagelist li {
+    border-radius: 0.5rem;
+    margin: 0 0 0.5rem;
+}
+
+/* ---------- Page de connexion ---------- */
+.login #container {
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.1);
+    overflow: hidden;
+    max-width: 420px;
+}
+
+.login #header {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    border-bottom: none;
+    justify-content: center;
+    padding: 2rem 1rem 1.5rem;
+}
+
+.login #header #branding h1,
+.login #header #branding h1 a {
+    color: #ffffff;
+    text-align: center;
+    width: 100%;
+}
+
+.login .form-row {
+    padding: 0.6rem 0;
+}
+
+.login .form-row #id_username,
+.login .form-row #id_password {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.login .submit-row {
+    background: transparent;
+    border-top: none;
+    padding: 0.5rem 0 0;
+}
+
+.login .submit-row input {
+    width: 100%;
+}

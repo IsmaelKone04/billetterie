@@ -561,3 +561,54 @@ qu'Ismaël puisse explorer le back-office ; un événement de démonstration
 (« Nuit du Coupé-Décalé », tarif debout + section VIP à sièges numérotés)
 seedé en base pour qu'il ait un vrai parcours à tester sans devoir créer
 ses propres données au préalable.
+
+## 2026-09-16 — Refonte visuelle de l'admin Django (style shadcn)
+
+Demande explicite d'Ismaël après le test utilisateur : « restructure cette
+page http://localhost:8000/admin/, je veux un beau rendu style shadcn ».
+shadcn/ui est une bibliothèque de composants React — pas transposable
+telle quelle sur du HTML/CSS généré par Django — donc reproduit son
+langage visuel (palette neutre + accent indigo, cartes blanches
+arrondies à bordure fine, ombres douces, typographie system-ui) plutôt que
+les composants eux-mêmes.
+
+**Réalisé :**
+- `apps/admin-django/static/admin/css/custom_theme.css` : surcharge des
+  variables CSS natives de l'admin Django 6.1 (`--primary`, `--body-bg`,
+  `--button-bg`, etc., définies dans `base.css`/`dark_mode.css`), plus des
+  règles ciblées pour les modules/cartes, la barre latérale, les tableaux
+  de listes, les formulaires et la page de connexion (dégradé indigo/violet
+  en en-tête, carte centrée). Couvre aussi le mode sombre natif de l'admin
+  (`html[data-theme="dark"]`), pas seulement le mode clair.
+- `apps/admin-django/templates/admin/base_site.html` : ajoute la feuille de
+  style via `{% block extrastyle %}` — étend `admin/base.html` (pas
+  `admin/base_site.html`, qui aurait pu créer une confusion sur quel
+  fichier est réellement résolu par le chargeur de templates).
+- `ticketing/admin.py` : `admin.site.site_header/site_title/index_title`
+  fixés à « billetterie » (remplace « Django administration »).
+- `TEMPLATES[0]["DIRS"]` ajouté dans `settings.py` pour que ce template
+  personnalisé soit trouvé.
+
+**Bug de spécificité CSS trouvé et corrigé :** le bouton « Rechercher » de
+la barre d'outils des listes restait gris malgré la surcharge de
+`--button-bg`. Cause : `admin/css/changelists.css` définit son propre
+`#toolbar form input[type="submit"] { background: var(--body-bg); ... }`,
+chargé **après** mon fichier (Django charge `changelists.css` dans le bloc
+`extrastyle` de `change_list.html`, qui appelle `{{ block.super }}` — donc
+mon lien `<link>` — avant d'ajouter le sien) ; à spécificité CSS égale,
+la règle chargée en dernier gagne. Corrigé avec des `!important` ciblés sur
+ce seul sélecteur — pragmatique, plutôt que restructurer l'ordre de
+chargement des templates.
+
+**Vérification visuelle réelle** (pas seulement `curl`, qui ne peut pas
+juger du rendu) : Chrome headless piloté via le protocole CDP brut
+(`--remote-debugging-port`, un script Node utilisant `fetch`/`WebSocket`
+natifs pour ouvrir un onglet, injecter le cookie de session obtenu par une
+connexion `curl` préalable, naviguer, puis `Page.captureScreenshot`) —
+login, tableau de bord, liste d'événements et formulaire d'ajout
+capturés et inspectés en image. `python manage.py check` sans erreur.
+
+**Non couvert par cette passe (pas demandé, pas vérifié) :** pages
+d'edit/detail plus complexes avec inlines (Order avec ses Ticket, par
+exemple) — la palette générale s'applique partout via les variables CSS,
+mais leur mise en page fine n'a pas été inspectée visuellement une à une.

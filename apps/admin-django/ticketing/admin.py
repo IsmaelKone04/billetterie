@@ -12,6 +12,10 @@ from .models import (
     Venue,
 )
 
+admin.site.site_header = "billetterie"
+admin.site.site_title = "billetterie — administration"
+admin.site.index_title = "Tableau de bord"
+
 
 @admin.register(Organizer)
 class OrganizerAdmin(admin.ModelAdmin):

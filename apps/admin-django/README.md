@@ -18,6 +18,11 @@ en libre-service via `api-fastapi`, hors du système d'auth Django) ; `user`
 (compte Django staff) est désormais optionnel, réservé à un éventuel accès
 admin manuel.
 
+Thème visuel personnalisé (`static/admin/css/custom_theme.css` +
+`templates/admin/base_site.html`) : palette neutre/indigo, cartes
+arrondies, ombres douces — surcharge des variables CSS natives de l'admin
+Django, mode sombre compris. Voir `docs/RAPPORT.md`.
+
 ## Lancer en local
 
 ```bash
