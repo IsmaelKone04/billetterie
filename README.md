@@ -60,6 +60,18 @@ docker compose up -d postgres redis
 **API publique FastAPI** (`apps/api-fastapi/`) : voir son README.
 **Frontend Next.js** (`apps/web/`) : voir son README.
 
+## Comptes de test (environnement local uniquement)
+
+| Interface | URL | Identifiant | Mot de passe |
+| --- | --- | --- | --- |
+| Admin Django | http://localhost:8000/admin/ | `admin` | `BilletterieDemo2026!` |
+
+Compte superuser Django, local à cette machine de développement — jamais
+utilisé en production, pas de données sensibles réelles derrière. À
+régénérer (`docker compose exec admin-django python manage.py
+changepassword admin`) si ce dépôt devient public ou si l'environnement
+est exposé au-delà de la machine locale.
+
 ## Roadmap
 
 Voir `docs/RAPPORT.md` pour le détail des jalons M0 à Mn.

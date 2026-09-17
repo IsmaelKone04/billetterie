@@ -656,3 +656,71 @@ tableau qui tient entièrement à l'écran sans action. Demande de précision
 (capture d'écran ou taille de fenêtre) en attente pour confirmer si c'est
 bien ce qu'il a vu, faute de quoi rien d'autre n'a pu être identifié comme
 cassé après une vérification systématique.
+
+## 2026-09-17 — Suite 2 : cause réelle trouvée, puis deux vrais bugs d'icônes
+
+Ismaël a confirmé qu'après rechargement (y compris en navigation privée),
+le rendu restait identique à l'admin Django brut (aucune carte, aucune
+ombre). Contrairement à la passe précédente, cette fois il y avait bien
+quelque chose de cassé — trois causes distinctes, trouvées et corrigées
+une à une.
+
+**Cause n°1 — image Docker obsolète.** Le conteneur `admin-django` tournait
+sur une image reconstruite *avant* les commits du thème (décalage d'une
+minute environ entre le build et le commit `e53842e`). Le conteneur
+servait donc l'admin Django par défaut, sans mes changements, alors que le
+code source les contenait déjà. `docker compose build admin-django &&
+docker compose up -d admin-django` a réglé ça — leçon actée : après un
+changement de fichiers **copiés** dans l'image (pas montés en volume), il
+faut systématiquement reconstruire avant de vérifier, pas seulement
+relancer.
+
+**Cause n°2 — contraste trop faible pour être visible.** Vérifié via
+Chrome headless piloté par CDP (profil vierge) que le CSS s'appliquait
+bien techniquement (confirmé aussi dans les DevTools du navigateur
+d'Ismaël : la règle `.module` avec `border-radius`/`box-shadow` gagnait
+la cascade, rien n'était barré). Le problème était visuel, pas technique :
+- `--darkened-bg` (fond d'en-tête de carte) valait exactement la même
+  couleur que `--body-bg` (fond de page) — `#f1f5f9` dans les deux cas —
+  rendant les cartes indiscernables du fond.
+- La bordure (`--border-color: #e2e8f0`, slate-200) et l'ombre
+  (`box-shadow` à 4 % d'opacité) étaient si subtiles qu'elles ne se
+  voyaient quasiment pas à l'écran, même si "correctes" au sens shadcn/ui.
+
+Corrigé en creusant l'écart : fond de page passé à slate-200 (`#e2e8f0`,
+nettement plus foncé que le blanc des cartes), fond d'en-tête de carte
+passé à indigo-50 (`#eef2ff`, distinct du fond de page), bordure remontée
+à slate-400 (`#94a3b8`), ombre renforcée (`0 2px 6px rgba(15,23,42,0.12)`
+au lieu de `0 1px 2px rgba(15,23,42,0.04)`).
+
+**Cause n°3 — deux vrais bugs d'alignement d'icônes**, remontés séparément
+par Ismaël après la correction du contraste :
+
+1. *Page d'accueil* : `.dashboard .module table td a { padding: 0.2rem 0;
+   }` — ce raccourci CSS remet `padding-left` à 0, alors que Django réserve
+   16px à gauche pour l'icône de fond (`.addlink`/`.changelink`/
+   `.viewlink`, en `background-image`). Le texte ("Ajouter", "Modifier")
+   recouvrait donc l'icône. Corrigé en ne posant plus que
+   `padding-top`/`padding-bottom`, sans toucher au gauche/droite.
+2. *Barre latérale* (partagée par toutes les pages) : `#nav-sidebar table
+   tr td a { padding: 0.45rem 1rem; }` ajoutait un `padding-right` de 16px
+   qui n'existait pas dans le CSS de base. Dans la colonne étroite de la
+   barre latérale (~74px de large), ça ne laissait plus que ~42px de
+   largeur utile — insuffisant pour le mot « Ajouter », qui passait à la
+   ligne sous l'icône au lieu de rester à côté. Diagnostiqué en comparant
+   les `getComputedStyle`/largeurs réelles avec et sans le correctif.
+   Corrigé en séparant la règle : `th a` (nom du modèle) garde son padding
+   généreux des deux côtés, `td a` (lien icône) ne garde que le padding
+   vertical, sans toucher au padding horizontal par défaut de Django.
+
+**Méthode de vérification** : à chaque étape, Chrome headless relancé
+avec un **profil entièrement neuf** (`--user-data-dir` jetable), car un
+profil réutilisé gardait le CSS précédent en cache disque et donnait de
+faux négatifs (constaté en direct : une vérification a semblé « ne rien
+changer » avant de comprendre que c'était le cache du Chrome de test, pas
+le serveur, qui était en cause). Connexion réelle via un compte de test
+temporaire (`debug_verify`), supprimé après usage.
+
+**Nettoyage effectué** : compte `debug_verify` supprimé ; mot de passe du
+compte `admin` réinitialisé (voir README pour les identifiants de test,
+documentés à la demande d'Ismaël).

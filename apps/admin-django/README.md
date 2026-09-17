@@ -21,7 +21,16 @@ admin manuel.
 Thème visuel personnalisé (`static/admin/css/custom_theme.css` +
 `templates/admin/base_site.html`) : palette neutre/indigo, cartes
 arrondies, ombres douces — surcharge des variables CSS natives de l'admin
-Django, mode sombre compris. Voir `docs/RAPPORT.md`.
+Django, mode sombre compris. Après toute modification de ce thème,
+**reconstruire l'image Docker** (`docker compose build admin-django &&
+docker compose up -d admin-django`) : les fichiers sont copiés dans
+l'image, pas montés en volume, donc relancer sans reconstruire sert
+l'ancienne version. Voir `docs/RAPPORT.md` pour l'historique des bugs
+trouvés/corrigés (contraste trop faible pour être visible, icônes
+Ajouter/Modifier mal alignées sur deux pages).
+
+**Identifiants de test locaux** : voir le README racine, section « Comptes
+de test ».
 
 ## Lancer en local
 
